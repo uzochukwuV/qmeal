@@ -4,50 +4,51 @@ import { Platform } from 'react-native';
 
 export interface User {
   user_id: string;
-  email: string;
+  email?: string;
+  phone?: string;
   name: string;
   picture?: string;
 }
 
 interface AuthState {
   user: User | null;
-  sessionToken: string | null;
+  token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
-  setSessionToken: (token: string | null) => void;
+  setToken: (token: string | null) => Promise<void>;
   setLoading: (loading: boolean) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
 }
 
 const storeToken = async (token: string | null) => {
   if (Platform.OS === 'web') {
     if (token) {
-      localStorage.setItem('session_token', token);
+      localStorage.setItem('auth_token', token);
     } else {
-      localStorage.removeItem('session_token');
+      localStorage.removeItem('auth_token');
     }
   } else {
     if (token) {
-      await SecureStore.setItemAsync('session_token', token);
+      await SecureStore.setItemAsync('auth_token', token);
     } else {
-      await SecureStore.deleteItemAsync('session_token');
+      await SecureStore.deleteItemAsync('auth_token');
     }
   }
 };
 
 const getStoredToken = async (): Promise<string | null> => {
   if (Platform.OS === 'web') {
-    return localStorage.getItem('session_token');
+    return localStorage.getItem('auth_token');
   } else {
-    return await SecureStore.getItemAsync('session_token');
+    return await SecureStore.getItemAsync('auth_token');
   }
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  sessionToken: null,
+  token: null,
   isLoading: true,
   isAuthenticated: false,
 
@@ -55,9 +56,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user, isAuthenticated: !!user });
   },
 
-  setSessionToken: async (token) => {
+  setToken: async (token) => {
     await storeToken(token);
-    set({ sessionToken: token });
+    set({ token });
   },
 
   setLoading: (loading) => {
@@ -66,14 +67,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await storeToken(null);
-    set({ user: null, sessionToken: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false });
   },
 
   loadStoredAuth: async () => {
     try {
       const token = await getStoredToken();
       if (token) {
-        set({ sessionToken: token });
+        set({ token });
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
