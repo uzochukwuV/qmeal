@@ -48,6 +48,7 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
+    { icon: 'heart-outline', label: 'Favorites', onPress: () => router.push('/favorites') },
     { icon: 'person-outline', label: 'Edit Profile', onPress: () => {} },
     { icon: 'location-outline', label: 'Saved Addresses', onPress: () => {} },
     { icon: 'card-outline', label: 'Payment Methods', onPress: () => {} },
@@ -80,7 +81,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
-            <Text style={styles.userEmail}>{user?.email || ''}</Text>
+            <Text style={styles.userEmail}>{user?.email || user?.phone || ''}</Text>
           </View>
           <TouchableOpacity style={styles.editButton}>
             <Ionicons name="pencil" size={20} color={COLORS.accent} />
@@ -99,10 +100,10 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Reviews</Text>
           </View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem} onPress={() => router.push('/favorites')}>
             <Text style={styles.statNumber}>3</Text>
             <Text style={styles.statLabel}>Favorites</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Menu Items */}
@@ -110,7 +111,10 @@ export default function ProfileScreen() {
           {menuItems.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.menuItem}
+              style={[
+                styles.menuItem,
+                index === menuItems.length - 1 && styles.menuItemLast,
+              ]}
               onPress={item.onPress}
             >
               <View style={styles.menuItemLeft}>
@@ -241,6 +245,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
   },
   menuItemLeft: {
     flexDirection: 'row',
