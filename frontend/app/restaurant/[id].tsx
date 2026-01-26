@@ -13,13 +13,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MenuItemCard } from '../../src/components/MenuItem';
 import { StarRating } from '../../src/components/StarRating';
 import { CartBadge } from '../../src/components/CartBadge';
 import { useCartStore } from '../../src/store/cartStore';
 import apiClient from '../../src/api/client';
 import { COLORS, SIZES, FONTS, SHADOWS } from '../../src/constants/theme';
+
+// Conditionally import MapView only on native platforms
+let MapView: any = null;
+let Marker: any = null;
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+}
 
 interface Restaurant {
   restaurant_id: string;
