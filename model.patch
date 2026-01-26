@@ -1,101 +1,221 @@
+diff --git a/model.patch b/model.patch
+index 6c77d40..e69de29 100644
+--- a/model.patch
++++ b/model.patch
+@@ -1,101 +0,0 @@
+-diff --git a/test_result.md b/test_result.md
+-index 75d7e06..127dd7d 100644
+---- a/test_result.md
+-+++ b/test_result.md
+-@@ -167,51 +167,63 @@ backend:
+- 
+-   - task: "Auth session exchange"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "POST /api/auth/session implemented, needs Emergent Auth integration test"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "Auth session exchange working - created test user session successfully and validated session token authentication flow"
+- 
+-   - task: "Auth me endpoint"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "GET /api/auth/me implemented, needs auth token test"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "GET /api/auth/me working correctly - returns user info with valid session token, proper 401 handling for invalid tokens"
+- 
+-   - task: "Orders CRUD"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "GET/POST /api/orders implemented, needs auth test"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "Orders CRUD working - GET /api/orders returns user orders, POST /api/orders creates orders with proper authentication and data validation"
+- 
+-   - task: "Reviews endpoint"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "server.py"
+-     stuck_count: 0
+-     priority: "medium"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "POST /api/reviews implemented, needs auth test"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "POST /api/reviews working - creates reviews with authentication, updates restaurant ratings automatically"
+- 
+-   - task: "Database seeding"
+-     implemented: true
+-@@ -325,13 +337,11 @@ frontend:
+- metadata:
+-   created_by: "main_agent"
+-   version: "1.0"
+--  test_sequence: 1
+-+  test_sequence: 2
+-   run_ui: false
+- 
+- test_plan:
+-   current_focus:
+--    - "Auth session exchange"
+--    - "Orders CRUD with authentication"
+-     - "Home screen restaurant display"
+-   stuck_tasks: []
+-   test_all: false
+-@@ -339,4 +349,6 @@ test_plan:
+- 
+- agent_communication:
+-   - agent: "main"
+--    message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
+-\ No newline at end of file
+-+    message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
+-+  - agent: "testing"
+-+    message: "Backend API testing complete - All 14 endpoints tested successfully including public APIs (health, restaurants, menu, reviews, cuisines) and authenticated APIs (auth/me, orders CRUD, reviews creation, logout). Created comprehensive test suite in backend_test.py. Authentication flow working correctly with session tokens. All high-priority backend tasks now verified as working."
+-\ No newline at end of file
 diff --git a/test_result.md b/test_result.md
-index 75d7e06..127dd7d 100644
+index 127dd7d..02f85bb 100644
 --- a/test_result.md
 +++ b/test_result.md
-@@ -167,51 +167,63 @@ backend:
- 
-   - task: "Auth session exchange"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
+@@ -237,6 +237,78 @@ backend:
          agent: "main"
-         comment: "POST /api/auth/session implemented, needs Emergent Auth integration test"
+         comment: "POST /api/seed creates 8 restaurants and 40 menu items"
+ 
++  - task: "JWT-based user registration"
++    implemented: true
++    working: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "high"
++    needs_retesting: false
++    status_history:
 +      - working: true
 +        agent: "testing"
-+        comment: "Auth session exchange working - created test user session successfully and validated session token authentication flow"
- 
-   - task: "Auth me endpoint"
-     implemented: true
--    working: "NA"
++        comment: "POST /api/auth/register working - supports email/phone registration with password, returns JWT token, handles existing user validation"
++
++  - task: "JWT-based user login"
++    implemented: true
 +    working: true
-     file: "server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "high"
 +    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "GET /api/auth/me implemented, needs auth token test"
++    status_history:
 +      - working: true
 +        agent: "testing"
-+        comment: "GET /api/auth/me working correctly - returns user info with valid session token, proper 401 handling for invalid tokens"
- 
-   - task: "Orders CRUD"
-     implemented: true
--    working: "NA"
++        comment: "POST /api/auth/login working - supports email/phone login with password, returns JWT token, proper credential validation"
++
++  - task: "JWT authentication middleware"
++    implemented: true
 +    working: true
-     file: "server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "high"
 +    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "GET/POST /api/orders implemented, needs auth test"
++    status_history:
 +      - working: true
 +        agent: "testing"
-+        comment: "Orders CRUD working - GET /api/orders returns user orders, POST /api/orders creates orders with proper authentication and data validation"
- 
-   - task: "Reviews endpoint"
-     implemented: true
--    working: "NA"
++        comment: "JWT token authentication working - Bearer token support, proper 401 handling for invalid/missing tokens, secure token validation"
++
++  - task: "Favorites management endpoints"
++    implemented: true
 +    working: true
-     file: "server.py"
-     stuck_count: 0
-     priority: "medium"
--    needs_retesting: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "high"
 +    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "POST /api/reviews implemented, needs auth test"
++    status_history:
 +      - working: true
 +        agent: "testing"
-+        comment: "POST /api/reviews working - creates reviews with authentication, updates restaurant ratings automatically"
- 
-   - task: "Database seeding"
++        comment: "All favorites endpoints working - POST /api/favorites/{id} (add), GET /api/favorites (list), GET /api/favorites/check/{id} (check status), DELETE /api/favorites/{id} (remove)"
++
++  - task: "Payment integration endpoints"
++    implemented: true
++    working: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "high"
++    needs_retesting: false
++    status_history:
++      - working: true
++        agent: "testing"
++        comment: "Payment endpoints working with MOCK Stripe keys - GET /api/payments/config returns publishable key, POST /api/payments/create-intent creates mock payment intents. Ready for production Stripe keys."
++
++  - task: "Notifications system endpoints"
++    implemented: true
++    working: true
++    file: "server.py"
++    stuck_count: 0
++    priority: "medium"
++    needs_retesting: false
++    status_history:
++      - working: true
++        agent: "testing"
++        comment: "Notification endpoints working - GET /api/notifications (list), POST /api/notifications/{id}/read (mark read), POST /api/notifications/read-all (mark all read). Push notifications created on order events but require push tokens for delivery."
++
+ frontend:
+   - task: "Login screen with Google OAuth"
      implemented: true
-@@ -325,13 +337,11 @@ frontend:
+@@ -336,13 +408,16 @@ frontend:
+ 
  metadata:
    created_by: "main_agent"
-   version: "1.0"
--  test_sequence: 1
-+  test_sequence: 2
+-  version: "1.0"
+-  test_sequence: 2
++  version: "1.1"
++  test_sequence: 3
    run_ui: false
  
  test_plan:
    current_focus:
--    - "Auth session exchange"
--    - "Orders CRUD with authentication"
-     - "Home screen restaurant display"
+-    - "Home screen restaurant display"
++    - "JWT authentication system"
++    - "New favorites endpoints"
++    - "Payment integration"
++    - "Notifications system"
    stuck_tasks: []
    test_all: false
-@@ -339,4 +349,6 @@ test_plan:
- 
- agent_communication:
+   test_priority: "high_first"
+@@ -351,4 +426,8 @@ agent_communication:
    - agent: "main"
--    message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
+     message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
+   - agent: "testing"
+-    message: "Backend API testing complete - All 14 endpoints tested successfully including public APIs (health, restaurants, menu, reviews, cuisines) and authenticated APIs (auth/me, orders CRUD, reviews creation, logout). Created comprehensive test suite in backend_test.py. Authentication flow working correctly with session tokens. All high-priority backend tasks now verified as working."
 \ No newline at end of file
-+    message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
-+  - agent: "testing"
 +    message: "Backend API testing complete - All 14 endpoints tested successfully including public APIs (health, restaurants, menu, reviews, cuisines) and authenticated APIs (auth/me, orders CRUD, reviews creation, logout). Created comprehensive test suite in backend_test.py. Authentication flow working correctly with session tokens. All high-priority backend tasks now verified as working."
++  - agent: "main"
++    message: "Updated Qmeal app with new JWT-based authentication system replacing Emergent Auth. Added new features: favorites management, payment integration with Stripe (mock keys), and notifications system. All endpoints implemented and ready for testing."
++  - agent: "testing"
++    message: "Comprehensive testing of updated Qmeal backend complete - All 18 endpoints tested successfully including NEW JWT-based auth (register/login/me/logout), favorites management (add/list/check/remove), payment integration (config/create-intent with MOCK Stripe), and notifications system (list/mark-read/mark-all-read). All authentication flows working correctly with JWT tokens. Payment system ready for production Stripe keys. Notification system functional but requires push tokens for delivery. Updated backend_test.py with comprehensive test suite covering all new endpoints."
 \ No newline at end of file
