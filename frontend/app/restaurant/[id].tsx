@@ -341,11 +341,10 @@ export default function RestaurantDetailScreen() {
               <Text style={styles.addressText}>{restaurant.address}</Text>
             </View>
             {/* Google Maps */}
-            {Platform.OS !== 'web' ? (
+            {Platform.OS !== 'web' && MapView ? (
               <View style={styles.mapContainer}>
                 <MapView
                   style={styles.map}
-                  provider={PROVIDER_GOOGLE}
                   initialRegion={{
                     latitude: restaurant.latitude,
                     longitude: restaurant.longitude,
@@ -355,14 +354,16 @@ export default function RestaurantDetailScreen() {
                   scrollEnabled={false}
                   zoomEnabled={false}
                 >
-                  <Marker
-                    coordinate={{
-                      latitude: restaurant.latitude,
-                      longitude: restaurant.longitude,
-                    }}
-                    title={restaurant.name}
-                    description={restaurant.address}
-                  />
+                  {Marker && (
+                    <Marker
+                      coordinate={{
+                        latitude: restaurant.latitude,
+                        longitude: restaurant.longitude,
+                      }}
+                      title={restaurant.name}
+                      description={restaurant.address}
+                    />
+                  )}
                 </MapView>
                 <View style={styles.mapOverlay}>
                   <Text style={styles.mapNote}>Google Maps API key required for full functionality</Text>
