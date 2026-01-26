@@ -237,6 +237,78 @@ backend:
         agent: "main"
         comment: "POST /api/seed creates 8 restaurants and 40 menu items"
 
+  - task: "JWT-based user registration"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/register working - supports email/phone registration with password, returns JWT token, handles existing user validation"
+
+  - task: "JWT-based user login"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/login working - supports email/phone login with password, returns JWT token, proper credential validation"
+
+  - task: "JWT authentication middleware"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "JWT token authentication working - Bearer token support, proper 401 handling for invalid/missing tokens, secure token validation"
+
+  - task: "Favorites management endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "All favorites endpoints working - POST /api/favorites/{id} (add), GET /api/favorites (list), GET /api/favorites/check/{id} (check status), DELETE /api/favorites/{id} (remove)"
+
+  - task: "Payment integration endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Payment endpoints working with MOCK Stripe keys - GET /api/payments/config returns publishable key, POST /api/payments/create-intent creates mock payment intents. Ready for production Stripe keys."
+
+  - task: "Notifications system endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Notification endpoints working - GET /api/notifications (list), POST /api/notifications/{id}/read (mark read), POST /api/notifications/read-all (mark all read). Push notifications created on order events but require push tokens for delivery."
+
 frontend:
   - task: "Login screen with Google OAuth"
     implemented: true
