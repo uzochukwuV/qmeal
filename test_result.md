@@ -408,13 +408,16 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 2
+  version: "1.1"
+  test_sequence: 3
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Home screen restaurant display"
+    - "JWT authentication system"
+    - "New favorites endpoints"
+    - "Payment integration"
+    - "Notifications system"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -424,3 +427,7 @@ agent_communication:
     message: "Initial MVP implementation complete. Backend APIs tested via curl - restaurants, menu, cuisines all working. Login screen screenshot verified. Need to test authenticated endpoints with test user session."
   - agent: "testing"
     message: "Backend API testing complete - All 14 endpoints tested successfully including public APIs (health, restaurants, menu, reviews, cuisines) and authenticated APIs (auth/me, orders CRUD, reviews creation, logout). Created comprehensive test suite in backend_test.py. Authentication flow working correctly with session tokens. All high-priority backend tasks now verified as working."
+  - agent: "main"
+    message: "Updated Qmeal app with new JWT-based authentication system replacing Emergent Auth. Added new features: favorites management, payment integration with Stripe (mock keys), and notifications system. All endpoints implemented and ready for testing."
+  - agent: "testing"
+    message: "Comprehensive testing of updated Qmeal backend complete - All 18 endpoints tested successfully including NEW JWT-based auth (register/login/me/logout), favorites management (add/list/check/remove), payment integration (config/create-intent with MOCK Stripe), and notifications system (list/mark-read/mark-all-read). All authentication flows working correctly with JWT tokens. Payment system ready for production Stripe keys. Notification system functional but requires push tokens for delivery. Updated backend_test.py with comprehensive test suite covering all new endpoints."
