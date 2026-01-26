@@ -36,6 +36,13 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF6B35"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Qmeal to use your location to find nearby restaurants."
@@ -48,6 +55,19 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#FAFAFA"
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.qmeal.app",
+          "enableGooglePay": true
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "apiKey": "GOOGLE_MAPS_API_KEY_PLACEHOLDER"
         }
       ]
     ],
