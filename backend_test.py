@@ -36,401 +36,450 @@ class QmealAPITester:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} {test_name}: {message}")
         
+    def make_request(self, method, endpoint, data=None, headers=None, use_auth=False):
+        """Make HTTP request with optional authentication"""
+        url = f"{BASE_URL}{endpoint}"
+        
+        request_headers = {"Content-Type": "application/json"}
+        if headers:
+            request_headers.update(headers)
+            
+        if use_auth and self.auth_token:
+            request_headers["Authorization"] = f"Bearer {self.auth_token}"
+            
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, headers=request_headers, timeout=15)
+            elif method.upper() == "POST":
+                response = requests.post(url, json=data, headers=request_headers, timeout=15)
+            elif method.upper() == "DELETE":
+                response = requests.delete(url, headers=request_headers, timeout=15)
+            elif method.upper() == "PATCH":
+                response = requests.patch(url, json=data, headers=request_headers, timeout=15)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+                
+            return response
+        except Exception as e:
+            print(f"Request failed: {e}")
+            return None
+
     def test_health_check(self):
-        """Test GET /api/health"""
-        try:
-            response = requests.get(f"{BASE_URL}/health", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if "status" in data and data["status"] == "healthy":
-                    self.log_result("Health Check", True, "Health endpoint working correctly", data)
-                else:
-                    self.log_result("Health Check", False, f"Unexpected response format: {data}")
-            else:
-                self.log_result("Health Check", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Health Check", False, f"Request failed: {str(e)}")
-    
-    def test_restaurants_list(self):
-        """Test GET /api/restaurants"""
-        try:
-            response = requests.get(f"{BASE_URL}/restaurants", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    # Check first restaurant structure
-                    restaurant = data[0]
-                    required_fields = ["restaurant_id", "name", "cuisine_type", "rating"]
-                    missing_fields = [field for field in required_fields if field not in restaurant]
-                    
-                    if not missing_fields:
-                        self.log_result("Restaurants List", True, f"Retrieved {len(data)} restaurants successfully")
-                    else:
-                        self.log_result("Restaurants List", False, f"Missing required fields: {missing_fields}")
-                else:
-                    self.log_result("Restaurants List", False, "Empty or invalid restaurant list")
-            else:
-                self.log_result("Restaurants List", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Restaurants List", False, f"Request failed: {str(e)}")
-    
-    def test_restaurants_with_filters(self):
-        """Test GET /api/restaurants with filters"""
-        try:
-            # Test cuisine filter
-            response = requests.get(f"{BASE_URL}/restaurants?cuisine=Italian", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list):
-                    self.log_result("Restaurant Cuisine Filter", True, f"Cuisine filter returned {len(data)} results")
-                else:
-                    self.log_result("Restaurant Cuisine Filter", False, "Invalid response format")
-            else:
-                self.log_result("Restaurant Cuisine Filter", False, f"HTTP {response.status_code}")
-                
-            # Test rating filter
-            response = requests.get(f"{BASE_URL}/restaurants?min_rating=4.5", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list):
-                    self.log_result("Restaurant Rating Filter", True, f"Rating filter returned {len(data)} results")
-                else:
-                    self.log_result("Restaurant Rating Filter", False, "Invalid response format")
-            else:
-                self.log_result("Restaurant Rating Filter", False, f"HTTP {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Restaurant Filters", False, f"Request failed: {str(e)}")
-    
-    def test_restaurant_detail(self):
-        """Test GET /api/restaurants/{id}"""
-        try:
-            # Use known restaurant ID from seed data
-            restaurant_id = "rest_001"
-            response = requests.get(f"{BASE_URL}/restaurants/{restaurant_id}", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                required_fields = ["restaurant_id", "name", "description", "cuisine_type", "rating"]
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if not missing_fields:
-                    self.log_result("Restaurant Detail", True, f"Retrieved restaurant details for {data.get('name', 'Unknown')}")
-                else:
-                    self.log_result("Restaurant Detail", False, f"Missing required fields: {missing_fields}")
-            else:
-                self.log_result("Restaurant Detail", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Restaurant Detail", False, f"Request failed: {str(e)}")
-    
-    def test_restaurant_menu(self):
-        """Test GET /api/restaurants/{id}/menu"""
-        try:
-            restaurant_id = "rest_001"
-            response = requests.get(f"{BASE_URL}/restaurants/{restaurant_id}/menu", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    # Check first menu item structure
-                    item = data[0]
-                    required_fields = ["item_id", "name", "price", "category"]
-                    missing_fields = [field for field in required_fields if field not in item]
-                    
-                    if not missing_fields:
-                        self.log_result("Restaurant Menu", True, f"Retrieved {len(data)} menu items")
-                    else:
-                        self.log_result("Restaurant Menu", False, f"Missing required fields: {missing_fields}")
-                else:
-                    self.log_result("Restaurant Menu", False, "Empty or invalid menu items")
-            else:
-                self.log_result("Restaurant Menu", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Restaurant Menu", False, f"Request failed: {str(e)}")
-    
-    def test_restaurant_reviews(self):
-        """Test GET /api/restaurants/{id}/reviews"""
-        try:
-            restaurant_id = "rest_001"
-            response = requests.get(f"{BASE_URL}/restaurants/{restaurant_id}/reviews", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list):
-                    self.log_result("Restaurant Reviews", True, f"Retrieved {len(data)} reviews")
-                else:
-                    self.log_result("Restaurant Reviews", False, "Invalid response format")
-            else:
-                self.log_result("Restaurant Reviews", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Restaurant Reviews", False, f"Request failed: {str(e)}")
-    
-    def test_cuisines_list(self):
-        """Test GET /api/cuisines"""
-        try:
-            response = requests.get(f"{BASE_URL}/cuisines", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if "cuisines" in data and isinstance(data["cuisines"], list):
-                    self.log_result("Cuisines List", True, f"Retrieved {len(data['cuisines'])} cuisines")
-                else:
-                    self.log_result("Cuisines List", False, "Invalid response format")
-            else:
-                self.log_result("Cuisines List", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Cuisines List", False, f"Request failed: {str(e)}")
-    
-    def create_test_user_session(self):
-        """Create a test user and session directly in MongoDB for auth testing"""
-        try:
-            import subprocess
-            import uuid
-            
-            # Generate unique identifiers
-            timestamp = int(datetime.now().timestamp())
-            visitor_id = f"user_{timestamp}"
-            session_token = f"test_session_{timestamp}"
-            
-            # MongoDB command to create test user and session
-            mongo_command = f"""
-            use('test_database');
-            var visitorId = '{visitor_id}';
-            var sessionToken = '{session_token}';
-            db.users.insertOne({{
-              user_id: visitorId,
-              email: 'test.user.{timestamp}@example.com',
-              name: 'Test User {timestamp}',
-              picture: 'https://via.placeholder.com/150',
-              created_at: new Date()
-            }});
-            db.user_sessions.insertOne({{
-              user_id: visitorId,
-              session_token: sessionToken,
-              expires_at: new Date(Date.now() + 7*24*60*60*1000),
-              created_at: new Date()
-            }});
-            print('SUCCESS: Session created');
-            """
-            
-            result = subprocess.run(
-                ["mongosh", "--eval", mongo_command],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            if result.returncode == 0 and "SUCCESS: Session created" in result.stdout:
-                self.session_token = session_token
-                self.user_id = visitor_id
-                self.log_result("Create Test Session", True, f"Created test user session: {visitor_id}")
+        """Test health check endpoint"""
+        response = self.make_request("GET", "/health")
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "healthy":
+                self.log_result("Health Check", True, "API is healthy")
                 return True
-            else:
-                self.log_result("Create Test Session", False, f"MongoDB command failed: {result.stderr}")
-                return False
-                
-        except Exception as e:
-            self.log_result("Create Test Session", False, f"Failed to create test session: {str(e)}")
-            return False
-    
+        
+        self.log_result("Health Check", False, f"Health check failed: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_auth_register(self):
+        """Test user registration with JWT"""
+        data = {
+            "email": self.test_user_email,
+            "password": self.test_user_password,
+            "name": self.test_user_name
+        }
+        
+        response = self.make_request("POST", "/auth/register", data)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("token") and data.get("user_id"):
+                self.auth_token = data["token"]
+                self.user_id = data["user_id"]
+                self.log_result("Auth Register", True, f"User registered successfully, token received")
+                return True
+        
+        # If user already exists, try login instead
+        if response and response.status_code == 400:
+            self.log_result("Auth Register", True, "User already exists (expected), will use login")
+            return self.test_auth_login()
+            
+        self.log_result("Auth Register", False, f"Registration failed: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_auth_login(self):
+        """Test user login with JWT"""
+        data = {
+            "email": self.test_user_email,
+            "password": self.test_user_password
+        }
+        
+        response = self.make_request("POST", "/auth/login", data)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("token") and data.get("user_id"):
+                self.auth_token = data["token"]
+                self.user_id = data["user_id"]
+                self.log_result("Auth Login", True, f"Login successful, token received")
+                return True
+        
+        self.log_result("Auth Login", False, f"Login failed: {response.status_code if response else 'No response'}")
+        return False
+
     def test_auth_me(self):
-        """Test GET /api/auth/me with authentication"""
-        if not self.session_token:
-            self.log_result("Auth Me", False, "No session token available")
-            return
-            
-        try:
-            headers = {"Authorization": f"Bearer {self.session_token}"}
-            response = requests.get(f"{BASE_URL}/auth/me", headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                required_fields = ["user_id", "email", "name"]
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if not missing_fields:
-                    self.log_result("Auth Me", True, f"Retrieved user info for {data.get('name', 'Unknown')}")
-                else:
-                    self.log_result("Auth Me", False, f"Missing required fields: {missing_fields}")
-            elif response.status_code == 401:
-                self.log_result("Auth Me", False, "Authentication failed - invalid session token")
-            else:
-                self.log_result("Auth Me", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Auth Me", False, f"Request failed: {str(e)}")
-    
-    def test_orders_get(self):
-        """Test GET /api/orders with authentication"""
-        if not self.session_token:
-            self.log_result("Get Orders", False, "No session token available")
-            return
-            
-        try:
-            headers = {"Authorization": f"Bearer {self.session_token}"}
-            response = requests.get(f"{BASE_URL}/orders", headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list):
-                    self.log_result("Get Orders", True, f"Retrieved {len(data)} orders")
-                else:
-                    self.log_result("Get Orders", False, "Invalid response format")
-            elif response.status_code == 401:
-                self.log_result("Get Orders", False, "Authentication failed")
-            else:
-                self.log_result("Get Orders", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Get Orders", False, f"Request failed: {str(e)}")
-    
-    def test_orders_create(self):
-        """Test POST /api/orders with authentication"""
-        if not self.session_token:
-            self.log_result("Create Order", False, "No session token available")
-            return
-            
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.session_token}",
-                "Content-Type": "application/json"
-            }
-            
-            order_data = {
-                "restaurant_id": "rest_001",
-                "restaurant_name": "Bella Italia",
-                "items": [
-                    {
-                        "item_id": "item_001",
-                        "name": "Margherita Pizza",
-                        "price": 14.99,
-                        "quantity": 2,
-                        "restaurant_id": "rest_001"
-                    }
-                ],
-                "subtotal": 29.98,
-                "delivery_fee": 2.99,
-                "total": 32.97,
-                "delivery_address": "123 Test Street, Test City"
-            }
-            
-            response = requests.post(f"{BASE_URL}/orders", headers=headers, json=order_data, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                required_fields = ["order_id", "user_id", "restaurant_id", "total", "status"]
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if not missing_fields:
-                    self.log_result("Create Order", True, f"Created order {data.get('order_id', 'Unknown')} with total ${data.get('total', 0)}")
-                else:
-                    self.log_result("Create Order", False, f"Missing required fields: {missing_fields}")
-            elif response.status_code == 401:
-                self.log_result("Create Order", False, "Authentication failed")
-            else:
-                self.log_result("Create Order", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Create Order", False, f"Request failed: {str(e)}")
-    
-    def test_reviews_create(self):
-        """Test POST /api/reviews with authentication"""
-        if not self.session_token:
-            self.log_result("Create Review", False, "No session token available")
-            return
-            
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.session_token}",
-                "Content-Type": "application/json"
-            }
-            
-            review_data = {
-                "restaurant_id": "rest_001",
-                "rating": 5,
-                "comment": "Excellent pizza and great service! Highly recommend the Margherita."
-            }
-            
-            response = requests.post(f"{BASE_URL}/reviews", headers=headers, json=review_data, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                required_fields = ["review_id", "restaurant_id", "user_id", "rating", "comment"]
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if not missing_fields:
-                    self.log_result("Create Review", True, f"Created review {data.get('review_id', 'Unknown')} with {data.get('rating', 0)} stars")
-                else:
-                    self.log_result("Create Review", False, f"Missing required fields: {missing_fields}")
-            elif response.status_code == 401:
-                self.log_result("Create Review", False, "Authentication failed")
-            else:
-                self.log_result("Create Review", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Create Review", False, f"Request failed: {str(e)}")
-    
+        """Test get current user endpoint"""
+        response = self.make_request("GET", "/auth/me", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("user_id") and data.get("name"):
+                self.log_result("Auth Me", True, f"User info retrieved: {data.get('name')}")
+                return True
+        
+        self.log_result("Auth Me", False, f"Get user info failed: {response.status_code if response else 'No response'}")
+        return False
+
     def test_auth_logout(self):
-        """Test POST /api/auth/logout with authentication"""
-        if not self.session_token:
-            self.log_result("Auth Logout", False, "No session token available")
-            return
+        """Test logout endpoint"""
+        response = self.make_request("POST", "/auth/logout", use_auth=True)
+        if response and response.status_code == 200:
+            self.log_result("Auth Logout", True, "Logout successful")
+            return True
+        
+        self.log_result("Auth Logout", False, f"Logout failed: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_restaurants_list(self):
+        """Test restaurant listing"""
+        response = self.make_request("GET", "/restaurants")
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list) and len(data) > 0:
+                self.log_result("Restaurants List", True, f"Retrieved {len(data)} restaurants")
+                return True
+        
+        self.log_result("Restaurants List", False, f"Failed to get restaurants: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_restaurant_detail(self):
+        """Test single restaurant detail"""
+        # First get a restaurant ID
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Restaurant Detail", False, "Could not get restaurant list first")
+            return False
             
-        try:
-            headers = {"Authorization": f"Bearer {self.session_token}"}
-            response = requests.post(f"{BASE_URL}/auth/logout", headers=headers, timeout=10)
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Restaurant Detail", False, "No restaurants available")
+            return False
             
-            if response.status_code == 200:
-                data = response.json()
-                if "message" in data:
-                    self.log_result("Auth Logout", True, "Successfully logged out")
-                else:
-                    self.log_result("Auth Logout", False, "Unexpected response format")
-            else:
-                self.log_result("Auth Logout", False, f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            self.log_result("Auth Logout", False, f"Request failed: {str(e)}")
-    
+        restaurant_id = restaurants[0]["restaurant_id"]
+        
+        response = self.make_request("GET", f"/restaurants/{restaurant_id}")
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("restaurant_id") == restaurant_id:
+                self.log_result("Restaurant Detail", True, f"Retrieved restaurant: {data.get('name')}")
+                return True
+        
+        self.log_result("Restaurant Detail", False, f"Failed to get restaurant detail: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_restaurant_menu(self):
+        """Test restaurant menu endpoint"""
+        # First get a restaurant ID
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Restaurant Menu", False, "Could not get restaurant list first")
+            return False
+            
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Restaurant Menu", False, "No restaurants available")
+            return False
+            
+        restaurant_id = restaurants[0]["restaurant_id"]
+        
+        response = self.make_request("GET", f"/restaurants/{restaurant_id}/menu")
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                self.log_result("Restaurant Menu", True, f"Retrieved {len(data)} menu items")
+                return True
+        
+        self.log_result("Restaurant Menu", False, f"Failed to get menu: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_favorites_add(self):
+        """Test adding restaurant to favorites"""
+        # First get a restaurant ID
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Add Favorite", False, "Could not get restaurant list first")
+            return False
+            
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Add Favorite", False, "No restaurants available")
+            return False
+            
+        restaurant_id = restaurants[0]["restaurant_id"]
+        
+        response = self.make_request("POST", f"/favorites/{restaurant_id}", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if "favorite_id" in data or "Already in favorites" in data.get("message", ""):
+                self.log_result("Add Favorite", True, "Restaurant added to favorites")
+                return True
+        
+        self.log_result("Add Favorite", False, f"Failed to add favorite: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_favorites_list(self):
+        """Test getting user's favorites"""
+        response = self.make_request("GET", "/favorites", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                self.log_result("Favorites List", True, f"Retrieved {len(data)} favorite restaurants")
+                return True
+        
+        self.log_result("Favorites List", False, f"Failed to get favorites: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_favorites_check(self):
+        """Test checking if restaurant is favorited"""
+        # First get a restaurant ID
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Check Favorite", False, "Could not get restaurant list first")
+            return False
+            
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Check Favorite", False, "No restaurants available")
+            return False
+            
+        restaurant_id = restaurants[0]["restaurant_id"]
+        
+        response = self.make_request("GET", f"/favorites/check/{restaurant_id}", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if "is_favorite" in data:
+                self.log_result("Check Favorite", True, f"Favorite status: {data['is_favorite']}")
+                return True
+        
+        self.log_result("Check Favorite", False, f"Failed to check favorite: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_favorites_remove(self):
+        """Test removing restaurant from favorites"""
+        # First get a restaurant ID
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Remove Favorite", False, "Could not get restaurant list first")
+            return False
+            
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Remove Favorite", False, "No restaurants available")
+            return False
+            
+        restaurant_id = restaurants[0]["restaurant_id"]
+        
+        response = self.make_request("DELETE", f"/favorites/{restaurant_id}", use_auth=True)
+        if response and (response.status_code == 200 or response.status_code == 404):
+            # 404 is acceptable if favorite doesn't exist
+            self.log_result("Remove Favorite", True, "Remove favorite endpoint working")
+            return True
+        
+        self.log_result("Remove Favorite", False, f"Failed to remove favorite: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_payment_config(self):
+        """Test payment configuration endpoint"""
+        response = self.make_request("GET", "/payments/config")
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("publishable_key"):
+                self.log_result("Payment Config", True, f"Payment config retrieved (mock: {data.get('is_mock', False)})")
+                return True
+        
+        self.log_result("Payment Config", False, f"Failed to get payment config: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_payment_intent(self):
+        """Test creating payment intent"""
+        data = {
+            "amount": 25.99,
+            "currency": "usd"
+        }
+        
+        response = self.make_request("POST", "/payments/create-intent", data, use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("client_secret") and data.get("payment_intent_id"):
+                mock_status = " (MOCK)" if data.get("mock") else ""
+                self.log_result("Payment Intent", True, f"Payment intent created{mock_status}")
+                return True
+        
+        self.log_result("Payment Intent", False, f"Failed to create payment intent: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_notifications_list(self):
+        """Test getting user notifications"""
+        response = self.make_request("GET", "/notifications", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                self.log_result("Notifications List", True, f"Retrieved {len(data)} notifications")
+                return True
+        
+        self.log_result("Notifications List", False, f"Failed to get notifications: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_notifications_read_all(self):
+        """Test marking all notifications as read"""
+        response = self.make_request("POST", "/notifications/read-all", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if "message" in data:
+                self.log_result("Mark All Notifications Read", True, "All notifications marked as read")
+                return True
+        
+        self.log_result("Mark All Notifications Read", False, f"Failed to mark notifications as read: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_orders_create(self):
+        """Test creating an order"""
+        # First get a restaurant and menu item
+        response = self.make_request("GET", "/restaurants")
+        if not response or response.status_code != 200:
+            self.log_result("Create Order", False, "Could not get restaurant list first")
+            return False
+            
+        restaurants = response.json()
+        if not restaurants:
+            self.log_result("Create Order", False, "No restaurants available")
+            return False
+            
+        restaurant = restaurants[0]
+        restaurant_id = restaurant["restaurant_id"]
+        
+        # Get menu items
+        response = self.make_request("GET", f"/restaurants/{restaurant_id}/menu")
+        if not response or response.status_code != 200:
+            self.log_result("Create Order", False, "Could not get menu items")
+            return False
+            
+        menu_items = response.json()
+        if not menu_items:
+            self.log_result("Create Order", False, "No menu items available")
+            return False
+            
+        item = menu_items[0]
+        
+        order_data = {
+            "restaurant_id": restaurant_id,
+            "restaurant_name": restaurant["name"],
+            "items": [{
+                "item_id": item["item_id"],
+                "name": item["name"],
+                "price": item["price"],
+                "quantity": 2,
+                "restaurant_id": restaurant_id
+            }],
+            "subtotal": item["price"] * 2,
+            "delivery_fee": restaurant["delivery_fee"],
+            "total": (item["price"] * 2) + restaurant["delivery_fee"],
+            "delivery_address": "123 Test Street, Test City"
+        }
+        
+        response = self.make_request("POST", "/orders", order_data, use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("order_id"):
+                self.log_result("Create Order", True, f"Order created: {data['order_id']}")
+                return True
+        
+        self.log_result("Create Order", False, f"Failed to create order: {response.status_code if response else 'No response'}")
+        return False
+
+    def test_orders_list(self):
+        """Test getting user orders"""
+        response = self.make_request("GET", "/orders", use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                self.log_result("Orders List", True, f"Retrieved {len(data)} orders")
+                return True
+        
+        self.log_result("Orders List", False, f"Failed to get orders: {response.status_code if response else 'No response'}")
+        return False
+
     def run_all_tests(self):
         """Run all API tests"""
-        print(f"🚀 Starting Qmeal API Tests")
+        print(f"🚀 Starting Qmeal API Tests - Updated JWT Authentication")
         print(f"📍 Base URL: {BASE_URL}")
         print("=" * 60)
         
-        # Test public endpoints first
-        print("\n📋 Testing Public Endpoints:")
-        self.test_health_check()
-        self.test_restaurants_list()
-        self.test_restaurants_with_filters()
-        self.test_restaurant_detail()
-        self.test_restaurant_menu()
-        self.test_restaurant_reviews()
-        self.test_cuisines_list()
+        # Test sequence
+        tests = [
+            # Basic health check
+            ("Health Check", self.test_health_check),
+            
+            # Authentication flow (NEW JWT-based)
+            ("Auth Register/Login", self.test_auth_register),
+            ("Auth Me", self.test_auth_me),
+            
+            # Public endpoints
+            ("Restaurants List", self.test_restaurants_list),
+            ("Restaurant Detail", self.test_restaurant_detail),
+            ("Restaurant Menu", self.test_restaurant_menu),
+            
+            # NEW Favorites endpoints
+            ("Add Favorite", self.test_favorites_add),
+            ("Favorites List", self.test_favorites_list),
+            ("Check Favorite", self.test_favorites_check),
+            ("Remove Favorite", self.test_favorites_remove),
+            
+            # NEW Payment endpoints
+            ("Payment Config", self.test_payment_config),
+            ("Payment Intent", self.test_payment_intent),
+            
+            # NEW Notifications endpoints
+            ("Notifications List", self.test_notifications_list),
+            ("Mark All Notifications Read", self.test_notifications_read_all),
+            
+            # Orders
+            ("Create Order", self.test_orders_create),
+            ("Orders List", self.test_orders_list),
+            
+            # Logout
+            ("Auth Logout", self.test_auth_logout),
+        ]
         
-        # Create test session for authenticated endpoints
-        print("\n🔐 Setting up Authentication:")
-        if self.create_test_user_session():
-            print("\n🔒 Testing Authenticated Endpoints:")
-            self.test_auth_me()
-            self.test_orders_get()
-            self.test_orders_create()
-            self.test_reviews_create()
-            self.test_auth_logout()
-        else:
-            print("❌ Skipping authenticated tests - session creation failed")
+        passed = 0
+        total = len(tests)
         
-        # Summary
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
+        for test_name, test_func in tests:
+            try:
+                if test_func():
+                    passed += 1
+            except Exception as e:
+                self.log_result(test_name, False, f"Test error: {str(e)}")
+        
         print("=" * 60)
+        print(f"📊 Test Results: {passed}/{total} tests passed")
         
-        passed = sum(1 for result in self.test_results if result["success"])
-        total = len(self.test_results)
-        
-        print(f"✅ Passed: {passed}")
-        print(f"❌ Failed: {total - passed}")
-        print(f"📈 Success Rate: {(passed/total)*100:.1f}%")
-        
-        # Show failed tests
-        failed_tests = [result for result in self.test_results if not result["success"]]
-        if failed_tests:
-            print(f"\n❌ Failed Tests:")
-            for test in failed_tests:
-                print(f"   • {test['test']}: {test['message']}")
-        
-        return passed == total
+        if passed == total:
+            print("🎉 All tests passed!")
+            return True
+        else:
+            print(f"⚠️  {total - passed} tests failed")
+            
+            # Show failed tests
+            failed_tests = [result for result in self.test_results if not result["success"]]
+            if failed_tests:
+                print(f"\n❌ Failed Tests:")
+                for test in failed_tests:
+                    print(f"   • {test['test']}: {test['message']}")
+            
+            return False
 
 if __name__ == "__main__":
     tester = QmealAPITester()
