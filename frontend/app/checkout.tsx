@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ export default function CheckoutScreen() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
   const [tip, setTip] = useState(0);
+  const [stripeConfig, setStripeConfig] = useState<{ publishable_key: string; is_mock: boolean } | null>(null);
 
   const subtotal = getTotal();
   const deliveryFee = 2.99;
@@ -33,6 +34,19 @@ export default function CheckoutScreen() {
   const total = subtotal + deliveryFee + serviceFee + tip;
 
   const tipOptions = [0, 2, 3, 5];
+
+  useEffect(() => {
+    // Fetch Stripe config
+    const fetchStripeConfig = async () => {
+      try {
+        const response = await apiClient.get('/payments/config');
+        setStripeConfig(response.data);
+      } catch (error) {
+        console.error('Error fetching Stripe config:', error);
+      }
+    };
+    fetchStripeConfig();
+  }, []);
 
   const handlePlaceOrder = async () => {
     if (!deliveryAddress.trim()) {
@@ -42,6 +56,28 @@ export default function CheckoutScreen() {
 
     setIsLoading(true);
     try {
+      // If using card payment, create payment intent first
+      let paymentMethodId = null;
+      if (paymentMethod === 'card') {
+        try {
+          const intentResponse = await apiClient.post('/payments/create-intent', {
+            amount: total,
+            currency: 'usd',
+          });
+          
+          // In production, you would use Stripe SDK to confirm the payment
+          // For demo, we'll proceed with the mock payment
+          if (intentResponse.data.mock) {
+            console.log('Using mock payment:', intentResponse.data.payment_intent_id);
+          }
+          paymentMethodId = intentResponse.data.payment_intent_id;
+        } catch (paymentError) {
+          console.error('Payment intent error:', paymentError);
+          // Continue with order anyway for demo
+        }
+      }
+
+      // Create order
       await apiClient.post('/orders', {
         restaurant_id,
         restaurant_name,
@@ -56,12 +92,13 @@ export default function CheckoutScreen() {
         delivery_fee: deliveryFee,
         total: total,
         delivery_address: deliveryAddress,
+        payment_method_id: paymentMethodId,
       });
 
       clearCart();
       Alert.alert(
         'Order Placed!',
-        'Your order has been placed successfully. You can track it in the Orders tab.',
+        'Your order has been placed successfully. You will receive notifications about your order status.',
         [
           {
             text: 'OK',
@@ -133,14 +170,19 @@ export default function CheckoutScreen() {
                     color={paymentMethod === 'card' ? COLORS.accent : COLORS.textSecondary}
                   />
                 </View>
-                <Text
-                  style={[
-                    styles.paymentText,
-                    paymentMethod === 'card' && styles.paymentTextActive,
-                  ]}
-                >
-                  Credit/Debit Card
-                </Text>
+                <View style={styles.paymentTextContainer}>
+                  <Text
+                    style={[
+                      styles.paymentText,
+                      paymentMethod === 'card' && styles.paymentTextActive,
+                    ]}
+                  >
+                    Credit/Debit Card
+                  </Text>
+                  {stripeConfig?.is_mock && (
+                    <Text style={styles.mockBadge}>Demo Mode</Text>
+                  )}
+                </View>
                 {paymentMethod === 'card' && (
                   <Ionicons name="checkmark-circle" size={22} color={COLORS.accent} />
                 )}
@@ -173,13 +215,15 @@ export default function CheckoutScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* Payment Notice */}
-            <View style={styles.paymentNotice}>
-              <Ionicons name="information-circle-outline" size={18} color={COLORS.textTertiary} />
-              <Text style={styles.paymentNoticeText}>
-                Payment processing is a UI demo. No real transactions.
-              </Text>
-            </View>
+            {/* Stripe Notice */}
+            {paymentMethod === 'card' && stripeConfig?.is_mock && (
+              <View style={styles.paymentNotice}>
+                <Ionicons name="information-circle-outline" size={18} color={COLORS.warning} />
+                <Text style={styles.paymentNoticeText}>
+                  Stripe integration is in demo mode. Add real API keys for production payments.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Tip */}
@@ -366,28 +410,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: SIZES.md,
   },
-  paymentText: {
+  paymentTextContainer: {
     flex: 1,
+  },
+  paymentText: {
     fontSize: 14,
     color: COLORS.textSecondary,
     ...FONTS.medium,
+    flex: 1,
   },
   paymentTextActive: {
     color: COLORS.textPrimary,
   },
+  mockBadge: {
+    fontSize: 10,
+    color: COLORS.warning,
+    ...FONTS.medium,
+    marginTop: 2,
+  },
   paymentNotice: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: SIZES.md,
     padding: SIZES.sm,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: '#FEF3C7',
     borderRadius: SIZES.radiusSm,
   },
   paymentNoticeText: {
     fontSize: 12,
-    color: COLORS.textTertiary,
+    color: COLORS.warning,
     marginLeft: SIZES.sm,
     flex: 1,
+    lineHeight: 18,
   },
   tipOptions: {
     flexDirection: 'row',

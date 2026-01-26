@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   SectionList,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MenuItemCard } from '../../src/components/MenuItem';
 import { StarRating } from '../../src/components/StarRating';
 import { CartBadge } from '../../src/components/CartBadge';
@@ -65,6 +67,8 @@ export default function RestaurantDetailScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'menu' | 'reviews' | 'info'>('menu');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   
   const { items, addItem, updateQuantity } = useCartStore();
 
@@ -80,6 +84,14 @@ export default function RestaurantDetailScreen() {
       setRestaurant(restaurantRes.data);
       setMenuItems(menuRes.data);
       setReviews(reviewsRes.data);
+      
+      // Check if favorited
+      try {
+        const favRes = await apiClient.get(`/favorites/check/${id}`);
+        setIsFavorite(favRes.data.is_favorite);
+      } catch (e) {
+        // User might not be authenticated
+      }
     } catch (error) {
       console.error('Error fetching restaurant:', error);
     } finally {
@@ -92,6 +104,23 @@ export default function RestaurantDetailScreen() {
       fetchData();
     }
   }, [id]);
+
+  const toggleFavorite = async () => {
+    if (!restaurant) return;
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await apiClient.delete(`/favorites/${restaurant.restaurant_id}`);
+      } else {
+        await apiClient.post(`/favorites/${restaurant.restaurant_id}`);
+      }
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   const getItemQuantity = (itemId: string) => {
     const cartItem = items.find((i) => i.item_id === itemId);
@@ -166,8 +195,20 @@ export default function RestaurantDetailScreen() {
               <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <View style={styles.heroActions}>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="heart-outline" size={24} color={COLORS.textPrimary} />
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={toggleFavorite}
+                disabled={favoriteLoading}
+              >
+                {favoriteLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.accent} />
+                ) : (
+                  <Ionicons 
+                    name={isFavorite ? "heart" : "heart-outline"} 
+                    size={24} 
+                    color={isFavorite ? COLORS.accent : COLORS.textPrimary} 
+                  />
+                )}
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionButton}>
                 <Ionicons name="share-outline" size={24} color={COLORS.textPrimary} />
@@ -291,12 +332,41 @@ export default function RestaurantDetailScreen() {
               <Ionicons name="location-outline" size={20} color={COLORS.accent} />
               <Text style={styles.addressText}>{restaurant.address}</Text>
             </View>
-            {/* Map Placeholder */}
-            <View style={styles.mapPlaceholder}>
-              <Ionicons name="map-outline" size={48} color={COLORS.textTertiary} />
-              <Text style={styles.mapPlaceholderText}>Map View</Text>
-              <Text style={styles.mapNote}>Google Maps API key required</Text>
-            </View>
+            {/* Google Maps */}
+            {Platform.OS !== 'web' ? (
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  provider={PROVIDER_GOOGLE}
+                  initialRegion={{
+                    latitude: restaurant.latitude,
+                    longitude: restaurant.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                  scrollEnabled={false}
+                  zoomEnabled={false}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: restaurant.latitude,
+                      longitude: restaurant.longitude,
+                    }}
+                    title={restaurant.name}
+                    description={restaurant.address}
+                  />
+                </MapView>
+                <View style={styles.mapOverlay}>
+                  <Text style={styles.mapNote}>Google Maps API key required for full functionality</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <Ionicons name="map-outline" size={48} color={COLORS.textTertiary} />
+                <Text style={styles.mapPlaceholderText}>Map View</Text>
+                <Text style={styles.mapNote}>Available on mobile devices</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.infoSection}>
@@ -549,6 +619,23 @@ const styles = StyleSheet.create({
     marginLeft: SIZES.sm,
     flex: 1,
   },
+  mapContainer: {
+    height: 180,
+    borderRadius: SIZES.radiusMd,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: SIZES.sm,
+  },
   mapPlaceholder: {
     height: 150,
     backgroundColor: COLORS.backgroundSecondary,
@@ -564,8 +651,8 @@ const styles = StyleSheet.create({
   },
   mapNote: {
     fontSize: 12,
-    color: COLORS.textTertiary,
-    marginTop: SIZES.xs,
+    color: COLORS.white,
+    textAlign: 'center',
   },
   hoursRow: {
     flexDirection: 'row',
