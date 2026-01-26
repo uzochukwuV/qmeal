@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Qmeal Restaurant Discovery App
-Tests all public and authenticated endpoints
+Comprehensive Backend API Testing for Qmeal App
+Tests the updated JWT-based authentication and all new endpoints
 """
 
 import requests
@@ -14,9 +14,12 @@ BASE_URL = "https://meal-express-162.preview.emergentagent.com/api"
 
 class QmealAPITester:
     def __init__(self):
-        self.session_token = None
+        self.auth_token = None
         self.user_id = None
         self.test_results = []
+        self.test_user_email = "testuser@qmeal.com"
+        self.test_user_password = "testpass123"
+        self.test_user_name = "Test User"
         
     def log_result(self, test_name, success, message, response_data=None):
         """Log test result"""
