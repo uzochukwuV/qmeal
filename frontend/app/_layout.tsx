@@ -3,116 +3,102 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { useAuthStore } from '../src/store/authStore';
 import { setAuthToken } from '../src/api/client';
 import apiClient from '../src/api/client';
 import { COLORS } from '../src/constants/theme';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
 
-WebBrowser.maybeCompleteAuthSession();
+// Configure notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export default function RootLayout() {
-  const { user, isLoading, sessionToken, setUser, setSessionToken, setLoading, loadStoredAuth } = useAuthStore();
+  const { user, isLoading, token, setUser, setToken, setLoading, loadStoredAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const [isProcessingAuth, setIsProcessingAuth] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Load stored auth on mount
   useEffect(() => {
     loadStoredAuth();
   }, []);
 
-  // Process session_id from URL (for OAuth callback)
+  // Register for push notifications
   useEffect(() => {
-    const processSessionId = async (sessionId: string) => {
-      if (isProcessingAuth) return;
-      setIsProcessingAuth(true);
-      setLoading(true);
+    const registerForPushNotifications = async () => {
+      if (Platform.OS === 'web') return;
       
       try {
-        const response = await apiClient.post('/auth/session', {
-          session_id: sessionId,
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        
+        if (finalStatus !== 'granted') {
+          console.log('Push notification permission not granted');
+          return;
+        }
+        
+        const pushToken = await Notifications.getExpoPushTokenAsync({
+          projectId: 'qmeal-app', // This would be your actual project ID
         });
         
-        const userData = response.data;
-        setAuthToken(userData.session_token);
-        await setSessionToken(userData.session_token);
-        setUser({
-          user_id: userData.user_id,
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture,
-        });
+        // Send push token to backend if user is authenticated
+        if (user && token) {
+          try {
+            await apiClient.post('/auth/push-token', {
+              push_token: pushToken.data,
+            });
+          } catch (error) {
+            console.error('Error updating push token:', error);
+          }
+        }
       } catch (error) {
-        console.error('Error processing session:', error);
-      } finally {
-        setLoading(false);
-        setIsProcessingAuth(false);
+        console.error('Error registering for push notifications:', error);
       }
     };
 
-    // Check for session_id in URL (web)
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const hash = window.location.hash;
-      const params = new URLSearchParams(hash.replace('#', ''));
-      const sessionId = params.get('session_id');
-      
-      if (sessionId) {
-        // Clear the hash from URL
-        window.history.replaceState(null, '', window.location.pathname);
-        processSessionId(sessionId);
-      }
+    if (user) {
+      registerForPushNotifications();
     }
-
-    // Handle deep links for mobile
-    const handleUrl = (event: { url: string }) => {
-      const { url } = event;
-      const parsed = Linking.parse(url);
-      const sessionId = parsed.queryParams?.session_id as string;
-      
-      if (sessionId) {
-        processSessionId(sessionId);
-      }
-    };
-
-    // Check initial URL (cold start)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleUrl({ url });
-      }
-    });
-
-    // Listen for URL changes
-    const subscription = Linking.addEventListener('url', handleUrl);
-    return () => subscription.remove();
-  }, []);
+  }, [user, token]);
 
   // Verify stored session token
   useEffect(() => {
     const verifySession = async () => {
-      if (sessionToken && !user && !isProcessingAuth) {
+      if (token && !user && !isVerifying) {
+        setIsVerifying(true);
         setLoading(true);
         try {
-          setAuthToken(sessionToken);
+          setAuthToken(token);
           const response = await apiClient.get('/auth/me');
           setUser(response.data);
         } catch (error) {
           console.error('Session verification failed:', error);
-          await setSessionToken(null);
+          await setToken(null);
           setAuthToken(null);
         } finally {
           setLoading(false);
+          setIsVerifying(false);
         }
       }
     };
 
     verifySession();
-  }, [sessionToken]);
+  }, [token]);
 
   // Handle navigation based on auth state
   useEffect(() => {
-    if (isLoading || isProcessingAuth) return;
+    if (isLoading || isVerifying) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
@@ -124,9 +110,31 @@ export default function RootLayout() {
       // Logged in and in auth group, redirect to main app
       router.replace('/(tabs)');
     }
-  }, [user, segments, isLoading, isProcessingAuth]);
+  }, [user, segments, isLoading, isVerifying]);
 
-  if (isLoading || isProcessingAuth) {
+  // Listen for notifications
+  useEffect(() => {
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response:', response);
+      const data = response.notification.request.content.data;
+      
+      // Navigate based on notification type
+      if (data?.type === 'order_status' || data?.type === 'order_confirmed') {
+        router.push('/(tabs)/orders');
+      }
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }, []);
+
+  if (isLoading || isVerifying) {
     return (
       <SafeAreaProvider>
         <View style={styles.loadingContainer}>
@@ -158,6 +166,13 @@ export default function RootLayout() {
         />
         <Stack.Screen 
           name="checkout" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+          }} 
+        />
+        <Stack.Screen 
+          name="favorites" 
           options={{ 
             headerShown: false,
             presentation: 'card',
