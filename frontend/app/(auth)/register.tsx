@@ -18,17 +18,23 @@ import { COLORS, SIZES, FONTS, SHADOWS } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import apiClient, { setAuthToken } from '../../src/api/client';
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const router = useRouter();
   const { setUser, setToken } = useAuthStore();
   const [isEmailMode, setIsEmailMode] = useState(true);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
+    if (!name) {
+      Alert.alert('Error', 'Please enter your name');
+      return;
+    }
     if (isEmailMode && !email) {
       Alert.alert('Error', 'Please enter your email');
       return;
@@ -38,13 +44,22 @@ export default function LoginScreen() {
       return;
     }
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert('Error', 'Please enter a password');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', {
+      const response = await apiClient.post('/auth/register', {
+        name,
         email: isEmailMode ? email.toLowerCase() : undefined,
         phone: !isEmailMode ? phone : undefined,
         password,
@@ -63,8 +78,8 @@ export default function LoginScreen() {
       
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Login error:', error);
-      const message = error.response?.data?.detail || 'Login failed. Please try again.';
+      console.error('Register error:', error);
+      const message = error.response?.data?.detail || 'Registration failed. Please try again.';
       Alert.alert('Error', message);
     } finally {
       setIsLoading(false);
@@ -82,13 +97,21 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+
           {/* Logo */}
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
               <Ionicons name="restaurant" size={48} color={COLORS.accent} />
             </View>
-            <Text style={styles.appName}>Qmeal</Text>
-            <Text style={styles.tagline}>Welcome back!</Text>
+            <Text style={styles.appName}>Create Account</Text>
+            <Text style={styles.tagline}>Join Qmeal and start ordering</Text>
           </View>
 
           {/* Login Type Toggle */}
@@ -123,6 +146,18 @@ export default function LoginScreen() {
 
           {/* Input Fields */}
           <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name"
+                placeholderTextColor={COLORS.textTertiary}
+                value={name}
+                onChangeText={setName}
+                autoComplete="name"
+              />
+            </View>
+
             {isEmailMode ? (
               <View style={styles.inputWrapper}>
                 <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
@@ -161,7 +196,6 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                autoComplete="password"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
@@ -171,33 +205,47 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor={COLORS.textTertiary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showPassword}
+              />
+            </View>
           </View>
 
-          {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotBtn}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          {/* Login Button */}
+          {/* Register Button */}
           <TouchableOpacity
-            style={[styles.loginBtn, isLoading && styles.btnDisabled]}
-            onPress={handleLogin}
+            style={[styles.registerBtn, isLoading && styles.btnDisabled]}
+            onPress={handleRegister}
             disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color={COLORS.white} />
             ) : (
-              <Text style={styles.loginBtnText}>Sign In</Text>
+              <Text style={styles.registerBtnText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
-          {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.registerLink}>Sign Up</Text>
+          {/* Login Link */}
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Terms */}
+          <Text style={styles.terms}>
+            By creating an account, you agree to our{' '}
+            <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+            <Text style={styles.termsLink}>Privacy Policy</Text>
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -215,8 +263,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: SIZES.lg,
-    paddingTop: SIZES.xl,
+    paddingTop: SIZES.md,
     paddingBottom: SIZES.xl,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    marginBottom: SIZES.md,
   },
   logoContainer: {
     alignItems: 'center',
@@ -232,7 +286,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.md,
   },
   appName: {
-    fontSize: 36,
+    fontSize: 28,
     color: COLORS.textPrimary,
     ...FONTS.bold,
     marginBottom: SIZES.xs,
@@ -269,7 +323,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   inputContainer: {
-    marginBottom: SIZES.md,
+    marginBottom: SIZES.lg,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -289,16 +343,7 @@ const styles = StyleSheet.create({
     marginLeft: SIZES.sm,
     ...FONTS.regular,
   },
-  forgotBtn: {
-    alignSelf: 'flex-end',
-    marginBottom: SIZES.lg,
-  },
-  forgotText: {
-    fontSize: 14,
-    color: COLORS.accent,
-    ...FONTS.medium,
-  },
-  loginBtn: {
+  registerBtn: {
     backgroundColor: COLORS.accent,
     height: 56,
     borderRadius: SIZES.radiusMd,
@@ -310,23 +355,33 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.7,
   },
-  loginBtnText: {
+  registerBtnText: {
     color: COLORS.white,
     fontSize: 18,
     ...FONTS.semiBold,
   },
-  registerContainer: {
+  loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: SIZES.lg,
   },
-  registerText: {
+  loginText: {
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  registerLink: {
+  loginLink: {
     fontSize: 14,
     color: COLORS.accent,
     ...FONTS.semiBold,
+  },
+  terms: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: COLORS.accent,
   },
 });
