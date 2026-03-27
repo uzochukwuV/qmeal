@@ -56,19 +56,6 @@
           "resizeMode": "contain",
           "backgroundColor": "#FAFAFA"
         }
-      ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.qmeal.app",
-          "enableGooglePay": true
-        }
-      ],
-      [
-        "react-native-maps",
-        {
-          "apiKey": "GOOGLE_MAPS_API_KEY_PLACEHOLDER"
-        }
       ]
     ],
     "experiments": {
