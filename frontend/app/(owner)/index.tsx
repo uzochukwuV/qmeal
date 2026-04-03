@@ -43,8 +43,8 @@ export default function OwnerDashboard() {
   const fetchDashboard = useCallback(async () => {
     try {
       const [dashRes, ordersRes] = await Promise.all([
-        apiClient.get('/api/owner/dashboard'),
-        apiClient.get('/api/owner/orders'),
+        apiClient.get('/owner/dashboard'),
+        apiClient.get('/owner/orders'),
       ]);
       setData(dashRes.data);
       setRecentOrders(ordersRes.data.slice(0, 5));
@@ -65,7 +65,7 @@ export default function OwnerDashboard() {
 
   const handleLogout = async () => {
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
     } catch (e) { /* ignore */ }
     await logout();
     router.replace('/(auth)/login');

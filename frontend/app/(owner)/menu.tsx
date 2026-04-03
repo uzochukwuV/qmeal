@@ -53,7 +53,7 @@ export default function OwnerMenu() {
 
   const fetchMenu = useCallback(async () => {
     try {
-      const res = await apiClient.get('/api/owner/menu');
+      const res = await apiClient.get('/owner/menu');
       setItems(res.data);
       const cats = ['All', ...new Set(res.data.map((i: MenuItemType) => i.category))] as string[];
       setCategories(cats);
@@ -109,7 +109,7 @@ export default function OwnerMenu() {
       if (editingItem) {
         await apiClient.patch(`/api/owner/menu/${editingItem.item_id}`, payload);
       } else {
-        await apiClient.post('/api/owner/menu', payload);
+        await apiClient.post('/owner/menu', payload);
       }
       setShowModal(false);
       await fetchMenu();

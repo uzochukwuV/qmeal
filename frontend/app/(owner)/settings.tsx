@@ -38,7 +38,7 @@ export default function OwnerSettings() {
 
   const fetchRestaurant = useCallback(async () => {
     try {
-      const res = await apiClient.get('/api/owner/restaurant');
+      const res = await apiClient.get('/owner/restaurant');
       setRestaurant(res.data);
       setFormData({
         name: res.data.name || '',
@@ -73,7 +73,7 @@ export default function OwnerSettings() {
       if (formData.delivery_time_max) payload.delivery_time_max = parseInt(formData.delivery_time_max);
       if (formData.delivery_fee) payload.delivery_fee = parseFloat(formData.delivery_fee);
 
-      await apiClient.patch('/api/owner/restaurant', payload);
+      await apiClient.patch('/owner/restaurant', payload);
       Alert.alert('Success', 'Restaurant details updated');
     } catch (err) {
       Alert.alert('Error', 'Failed to update restaurant details');
@@ -84,7 +84,7 @@ export default function OwnerSettings() {
 
   const handleLogout = async () => {
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
     } catch (e) { /* ignore */ }
     await logout();
     router.replace('/(auth)/login');
