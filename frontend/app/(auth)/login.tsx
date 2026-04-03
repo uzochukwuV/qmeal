@@ -59,9 +59,16 @@ export default function LoginScreen() {
         phone: userData.phone,
         name: userData.name,
         picture: userData.picture,
+        role: userData.role || 'customer',
+        restaurant_id: userData.restaurant_id,
       });
       
-      router.replace('/(tabs)');
+      // Route based on role
+      if (userData.role === 'owner') {
+        router.replace('/(owner)');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       const message = error.response?.data?.detail || 'Login failed. Please try again.';
@@ -198,6 +205,15 @@ export default function LoginScreen() {
               <Text style={styles.registerLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Owner Login Link */}
+          <TouchableOpacity 
+            style={styles.ownerLinkContainer}
+            onPress={() => router.push('/(auth)/owner-register')}
+          >
+            <Ionicons name="storefront-outline" size={18} color={COLORS.accent} />
+            <Text style={styles.ownerLinkText}>Are you a restaurant owner?</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -325,6 +341,21 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   registerLink: {
+    fontSize: 14,
+    color: COLORS.accent,
+    ...FONTS.semiBold,
+  },
+  ownerLinkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SIZES.xl,
+    paddingVertical: SIZES.md,
+    backgroundColor: COLORS.accentLight,
+    borderRadius: SIZES.radiusMd,
+    gap: 8,
+  },
+  ownerLinkText: {
     fontSize: 14,
     color: COLORS.accent,
     ...FONTS.semiBold,

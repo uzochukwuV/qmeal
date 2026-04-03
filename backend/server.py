@@ -55,6 +55,8 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     push_token: Optional[str] = None
+    role: str = "customer"  # "customer" or "owner"
+    restaurant_id: Optional[str] = None  # Links owner to their restaurant
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserSession(BaseModel):
@@ -81,6 +83,8 @@ class AuthResponse(BaseModel):
     phone: Optional[str] = None
     name: str
     picture: Optional[str] = None
+    role: str = "customer"
+    restaurant_id: Optional[str] = None
     token: str
 
 class UpdatePushTokenRequest(BaseModel):
@@ -188,6 +192,45 @@ class CreatePaymentIntentRequest(BaseModel):
 
 class UpdateOrderStatusRequest(BaseModel):
     status: str
+
+# Owner-specific models
+class RegisterOwnerRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    restaurant_name: str
+    cuisine_type: str
+    description: str
+    address: str
+
+class AddMenuItemRequest(BaseModel):
+    name: str
+    description: str
+    price: float
+    category: str
+    image_url: Optional[str] = None
+    is_available: bool = True
+    is_popular: bool = False
+
+class UpdateMenuItemRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    is_available: Optional[bool] = None
+    is_popular: Optional[bool] = None
+
+class UpdateRestaurantRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    cuisine_type: Optional[str] = None
+    address: Optional[str] = None
+    delivery_time_min: Optional[int] = None
+    delivery_time_max: Optional[int] = None
+    delivery_fee: Optional[float] = None
+    is_open: Optional[bool] = None
+    image_url: Optional[str] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -353,6 +396,8 @@ async def register(request_data: RegisterRequest, response: Response):
         phone=request_data.phone,
         name=request_data.name,
         picture=None,
+        role="customer",
+        restaurant_id=None,
         token=token
     )
 
@@ -397,6 +442,8 @@ async def login(request_data: LoginRequest, response: Response):
         phone=user_doc.get("phone"),
         name=user_doc["name"],
         picture=user_doc.get("picture"),
+        role=user_doc.get("role", "customer"),
+        restaurant_id=user_doc.get("restaurant_id"),
         token=token
     )
 
@@ -801,6 +848,304 @@ async def mark_all_notifications_read(current_user: User = Depends(require_auth)
         {"$set": {"read": True}}
     )
     return {"message": "All notifications marked as read"}
+
+# ==================== OWNER AUTH ====================
+
+async def require_owner(request: Request) -> User:
+    """Dependency that requires owner authentication"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if user.role != "owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
+    if not user.restaurant_id:
+        raise HTTPException(status_code=403, detail="No restaurant assigned")
+    return user
+
+@api_router.post("/auth/register-owner", response_model=AuthResponse)
+async def register_owner(request_data: RegisterOwnerRequest, response: Response):
+    """Register a new restaurant owner with their restaurant"""
+    existing = await db.users.find_one({"email": request_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create restaurant
+    restaurant_id = f"rest_{uuid.uuid4().hex[:12]}"
+    restaurant = {
+        "restaurant_id": restaurant_id,
+        "name": request_data.restaurant_name,
+        "description": request_data.description,
+        "cuisine_type": request_data.cuisine_type,
+        "rating": 0.0,
+        "review_count": 0,
+        "price_level": 2,
+        "image_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+        "address": request_data.address,
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "delivery_time_min": 25,
+        "delivery_time_max": 45,
+        "delivery_fee": 2.99,
+        "is_open": True,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.restaurants.insert_one(restaurant)
+    
+    # Create owner user
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    hashed_password = hash_password(request_data.password)
+    user = {
+        "user_id": user_id,
+        "email": request_data.email,
+        "name": request_data.name,
+        "password_hash": hashed_password,
+        "role": "owner",
+        "restaurant_id": restaurant_id,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.users.insert_one(user)
+    
+    token = create_jwt_token(user_id)
+    return AuthResponse(
+        user_id=user_id,
+        email=request_data.email,
+        name=request_data.name,
+        role="owner",
+        restaurant_id=restaurant_id,
+        token=token
+    )
+
+# ==================== OWNER DASHBOARD ====================
+
+@api_router.get("/owner/dashboard")
+async def owner_dashboard(current_user: User = Depends(require_owner)):
+    """Get dashboard stats for restaurant owner"""
+    restaurant_id = current_user.restaurant_id
+    
+    # Get restaurant info
+    restaurant = await db.restaurants.find_one(
+        {"restaurant_id": restaurant_id}, {"_id": 0}
+    )
+    
+    # Today's orders
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_orders = await db.orders.count_documents({
+        "restaurant_id": restaurant_id,
+        "created_at": {"$gte": today_start}
+    })
+    
+    # Total revenue today
+    pipeline = [
+        {"$match": {
+            "restaurant_id": restaurant_id,
+            "created_at": {"$gte": today_start}
+        }},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    revenue_result = await db.orders.aggregate(pipeline).to_list(1)
+    today_revenue = revenue_result[0]["total"] if revenue_result else 0
+    
+    # Total revenue all time
+    pipeline_all = [
+        {"$match": {"restaurant_id": restaurant_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    all_revenue_result = await db.orders.aggregate(pipeline_all).to_list(1)
+    total_revenue = all_revenue_result[0]["total"] if all_revenue_result else 0
+    
+    # Pending orders count
+    pending_orders = await db.orders.count_documents({
+        "restaurant_id": restaurant_id,
+        "status": {"$in": ["pending", "confirmed"]}
+    })
+    
+    # Total orders count
+    total_orders = await db.orders.count_documents({"restaurant_id": restaurant_id})
+    
+    # Menu items count
+    menu_count = await db.menu_items.count_documents({"restaurant_id": restaurant_id})
+    
+    # Reviews count
+    review_count = await db.reviews.count_documents({"restaurant_id": restaurant_id})
+    
+    return {
+        "restaurant": restaurant,
+        "stats": {
+            "today_orders": today_orders,
+            "today_revenue": round(today_revenue, 2),
+            "total_revenue": round(total_revenue, 2),
+            "pending_orders": pending_orders,
+            "total_orders": total_orders,
+            "menu_items": menu_count,
+            "review_count": review_count,
+            "rating": restaurant.get("rating", 0) if restaurant else 0,
+        }
+    }
+
+# ==================== OWNER ORDERS ====================
+
+@api_router.get("/owner/orders")
+async def owner_get_orders(
+    status: Optional[str] = None,
+    current_user: User = Depends(require_owner)
+):
+    """Get all orders for the owner's restaurant"""
+    query = {"restaurant_id": current_user.restaurant_id}
+    if status:
+        query["status"] = status
+    
+    orders = await db.orders.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Enrich with customer names
+    for order in orders:
+        user = await db.users.find_one({"user_id": order["user_id"]}, {"name": 1, "_id": 0})
+        order["customer_name"] = user.get("name", "Unknown") if user else "Unknown"
+    
+    return orders
+
+@api_router.patch("/owner/orders/{order_id}/status")
+async def owner_update_order_status(
+    order_id: str,
+    request_data: UpdateOrderStatusRequest,
+    current_user: User = Depends(require_owner)
+):
+    """Update order status (owner only)"""
+    valid_statuses = ["pending", "confirmed", "preparing", "ready", "picked_up", "delivered", "cancelled"]
+    if request_data.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    
+    order = await db.orders.find_one({
+        "order_id": order_id,
+        "restaurant_id": current_user.restaurant_id
+    })
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {"$set": {"status": request_data.status}}
+    )
+    
+    # Notify customer
+    status_messages = {
+        "confirmed": "Your order has been confirmed!",
+        "preparing": "Your food is being prepared",
+        "ready": "Your order is ready for pickup!",
+        "picked_up": "Your order is on its way!",
+        "delivered": "Your order has been delivered!",
+        "cancelled": "Your order has been cancelled"
+    }
+    
+    if request_data.status in status_messages:
+        await send_push_notification(
+            order["user_id"],
+            f"Order #{order_id[:8]}",
+            status_messages[request_data.status],
+            {"type": "order_status", "order_id": order_id, "status": request_data.status}
+        )
+    
+    return {"message": "Order status updated", "status": request_data.status}
+
+# ==================== OWNER MENU MANAGEMENT ====================
+
+@api_router.get("/owner/menu")
+async def owner_get_menu(current_user: User = Depends(require_owner)):
+    """Get all menu items for the owner's restaurant"""
+    items = await db.menu_items.find(
+        {"restaurant_id": current_user.restaurant_id}, {"_id": 0}
+    ).to_list(200)
+    return items
+
+@api_router.post("/owner/menu")
+async def owner_add_menu_item(
+    request_data: AddMenuItemRequest,
+    current_user: User = Depends(require_owner)
+):
+    """Add a new menu item"""
+    item = MenuItem(
+        restaurant_id=current_user.restaurant_id,
+        name=request_data.name,
+        description=request_data.description,
+        price=request_data.price,
+        category=request_data.category,
+        image_url=request_data.image_url,
+        is_available=request_data.is_available,
+        is_popular=request_data.is_popular,
+    )
+    await db.menu_items.insert_one(item.dict())
+    return item.dict()
+
+@api_router.patch("/owner/menu/{item_id}")
+async def owner_update_menu_item(
+    item_id: str,
+    request_data: UpdateMenuItemRequest,
+    current_user: User = Depends(require_owner)
+):
+    """Update an existing menu item"""
+    existing = await db.menu_items.find_one({
+        "item_id": item_id,
+        "restaurant_id": current_user.restaurant_id
+    })
+    if not existing:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    
+    update_fields = {k: v for k, v in request_data.dict().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    await db.menu_items.update_one(
+        {"item_id": item_id},
+        {"$set": update_fields}
+    )
+    updated = await db.menu_items.find_one({"item_id": item_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/owner/menu/{item_id}")
+async def owner_delete_menu_item(
+    item_id: str,
+    current_user: User = Depends(require_owner)
+):
+    """Delete a menu item"""
+    result = await db.menu_items.delete_one({
+        "item_id": item_id,
+        "restaurant_id": current_user.restaurant_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    return {"message": "Menu item deleted"}
+
+# ==================== OWNER RESTAURANT PROFILE ====================
+
+@api_router.get("/owner/restaurant")
+async def owner_get_restaurant(current_user: User = Depends(require_owner)):
+    """Get the owner's restaurant details"""
+    restaurant = await db.restaurants.find_one(
+        {"restaurant_id": current_user.restaurant_id}, {"_id": 0}
+    )
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+    return restaurant
+
+@api_router.patch("/owner/restaurant")
+async def owner_update_restaurant(
+    request_data: UpdateRestaurantRequest,
+    current_user: User = Depends(require_owner)
+):
+    """Update restaurant details"""
+    update_fields = {k: v for k, v in request_data.dict().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    await db.restaurants.update_one(
+        {"restaurant_id": current_user.restaurant_id},
+        {"$set": update_fields}
+    )
+    updated = await db.restaurants.find_one(
+        {"restaurant_id": current_user.restaurant_id}, {"_id": 0}
+    )
+    return updated
 
 # ==================== SEED DATA ====================
 

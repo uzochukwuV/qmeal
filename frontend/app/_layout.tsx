@@ -102,12 +102,23 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const inOwnerGroup = segments[0] === '(owner)';
 
     if (!user && !inAuthGroup) {
       // Not logged in and not in auth group, redirect to login
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
-      // Logged in and in auth group, redirect to main app
+      // Logged in and in auth group, redirect based on role
+      if (user.role === 'owner') {
+        router.replace('/(owner)');
+      } else {
+        router.replace('/(tabs)');
+      }
+    } else if (user && user.role === 'owner' && inTabsGroup) {
+      // Owner in customer tabs, redirect to owner
+      router.replace('/(owner)');
+    } else if (user && user.role !== 'owner' && inOwnerGroup) {
+      // Customer in owner area, redirect to customer tabs
       router.replace('/(tabs)');
     }
   }, [user, segments, isLoading, isVerifying]);
@@ -156,6 +167,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(owner)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="restaurant/[id]" 
           options={{ 

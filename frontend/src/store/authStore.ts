@@ -8,6 +8,8 @@ export interface User {
   phone?: string;
   name: string;
   picture?: string;
+  role?: string;
+  restaurant_id?: string;
 }
 
 interface AuthState {

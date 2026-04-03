@@ -324,6 +324,78 @@ backend:
         agent: "testing"
         comment: "PATCH /api/auth/profile working correctly - successfully updates user name, email, phone with proper email uniqueness validation. All existing endpoints verified as still working."
 
+  - task: "Restaurant Owner registration"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/register-owner working - creates owner user with role='owner', creates associated restaurant, returns JWT token with restaurant_id. Fixed password field naming issue."
+
+  - task: "Restaurant Owner login"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/login working for owners - returns role='owner' and restaurant_id in response. Fixed bcrypt password verification issue."
+
+  - task: "Owner dashboard endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/owner/dashboard working - returns restaurant details and comprehensive stats (today_orders, today_revenue, total_revenue, pending_orders, total_orders, menu_items, review_count, rating)"
+
+  - task: "Owner restaurant management"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/owner/restaurant and PATCH /api/owner/restaurant working - can retrieve and update restaurant details including delivery_fee, name, description, etc."
+
+  - task: "Owner menu management"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Full menu CRUD working - GET /api/owner/menu (list), POST /api/owner/menu (add), PATCH /api/owner/menu/{id} (update), DELETE /api/owner/menu/{id} (remove). All operations tested successfully."
+
+  - task: "Owner orders management"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/owner/orders working - returns orders for owner's restaurant. Endpoint properly filters orders by restaurant_id."
+
 frontend:
   - task: "Login screen with Google OAuth"
     implemented: true
@@ -471,8 +543,8 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.2"
-  test_sequence: 4
+  version: "1.3"
+  test_sequence: 5
   run_ui: true
 
 test_plan:
@@ -496,3 +568,5 @@ agent_communication:
     message: "Ready for frontend UI testing. Test credentials: email=test@qmeal.com, password=Test1234!. App URL: https://order-platform-32.preview.emergentagent.com. All screens connected with navigation. Test full flow: Login -> Home -> Restaurant -> Add to Cart -> Cart -> Checkout -> Orders -> Order Detail -> Profile -> Edit Profile -> Notifications -> Favorites."
   - agent: "testing"
     message: "COMPREHENSIVE FRONTEND TESTING COMPLETED SUCCESSFULLY on mobile dimensions (390x844). All 10 specified flows tested and working: ✅ Login Flow (email/password auth), ✅ Home Screen (personalized greeting, restaurant cards, cuisine filters, notification bell), ✅ Restaurant Detail (tabs, menu items, add to cart buttons), ✅ Cart Flow (add items, quantity controls, checkout navigation), ✅ Checkout Screen (order summary, payment options), ✅ Orders Tab (empty state working), ✅ Profile Tab (user info, menu items), ✅ Notifications (accessible from profile and home), ✅ Edit Profile (form with user data), ✅ Search Tab (search functionality). Mobile-first design confirmed responsive and functional. No critical issues found."
+  - agent: "testing"
+    message: "NEW RESTAURANT OWNER API TESTING COMPLETED SUCCESSFULLY. All 13 owner endpoints tested and working: ✅ Owner Registration (POST /api/auth/register-owner), ✅ Owner Login (role validation), ✅ Owner Dashboard (GET /api/owner/dashboard with stats), ✅ Restaurant Management (GET/PATCH /api/owner/restaurant), ✅ Menu Management (full CRUD - GET/POST/PATCH/DELETE /api/owner/menu), ✅ Orders Management (GET /api/owner/orders). Fixed critical password field naming bug in owner registration. All existing customer endpoints verified still working. Owner authentication and authorization working correctly with JWT tokens."
