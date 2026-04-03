@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   SectionList,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,14 +19,8 @@ import { useCartStore } from '../../src/store/cartStore';
 import apiClient from '../../src/api/client';
 import { COLORS, SIZES, FONTS, SHADOWS } from '../../src/constants/theme';
 
-// Conditionally import MapView only on native platforms
-let MapView: any = null;
-let Marker: any = null;
-if (Platform.OS !== 'web') {
-  const Maps = require('react-native-maps');
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-}
+// Import platform-specific MapView (web gets a placeholder, native gets react-native-maps)
+import { MapViewComponent, MarkerComponent } from '../../src/components/MapView';
 
 interface Restaurant {
   restaurant_id: string;
@@ -341,41 +334,26 @@ export default function RestaurantDetailScreen() {
               <Text style={styles.addressText}>{restaurant.address}</Text>
             </View>
             {/* Google Maps */}
-            {Platform.OS !== 'web' && MapView ? (
-              <View style={styles.mapContainer}>
-                <MapView
-                  style={styles.map}
-                  initialRegion={{
+            <View style={styles.mapContainer}>
+              <MapViewComponent
+                style={styles.map}
+                initialRegion={{
+                  latitude: restaurant.latitude,
+                  longitude: restaurant.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+              >
+                <MarkerComponent
+                  coordinate={{
                     latitude: restaurant.latitude,
                     longitude: restaurant.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
                   }}
-                  scrollEnabled={false}
-                  zoomEnabled={false}
-                >
-                  {Marker && (
-                    <Marker
-                      coordinate={{
-                        latitude: restaurant.latitude,
-                        longitude: restaurant.longitude,
-                      }}
-                      title={restaurant.name}
-                      description={restaurant.address}
-                    />
-                  )}
-                </MapView>
-                <View style={styles.mapOverlay}>
-                  <Text style={styles.mapNote}>Google Maps API key required for full functionality</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map-outline" size={48} color={COLORS.textTertiary} />
-                <Text style={styles.mapPlaceholderText}>Map View</Text>
-                <Text style={styles.mapNote}>Available on mobile devices</Text>
-              </View>
-            )}
+                  title={restaurant.name}
+                  description={restaurant.address}
+                />
+              </MapViewComponent>
+            </View>
           </View>
 
           <View style={styles.infoSection}>

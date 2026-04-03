@@ -17,9 +17,9 @@ class QmealAPITester:
         self.auth_token = None
         self.user_id = None
         self.test_results = []
-        self.test_user_email = "testuser@qmeal.com"
-        self.test_user_password = "testpass123"
-        self.test_user_name = "Test User"
+        self.test_user_email = "tester@qmeal.com"
+        self.test_user_password = "TestPass123!"
+        self.test_user_name = "Backend Tester"
         
     def log_result(self, test_name, success, message, response_data=None):
         """Log test result"""
@@ -411,6 +411,40 @@ class QmealAPITester:
         self.log_result("Orders List", False, f"Failed to get orders: {response.status_code if response else 'No response'}")
         return False
 
+    def test_profile_update(self):
+        """Test updating user profile"""
+        # Test updating name
+        update_data = {
+            "name": "Updated Test User",
+            "phone": "+1234567890"
+        }
+        
+        response = self.make_request("PATCH", "/auth/profile", update_data, use_auth=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            if data.get("name") == "Updated Test User" and data.get("phone") == "+1234567890":
+                self.log_result("Profile Update", True, "Profile updated successfully")
+                
+                # Test email uniqueness validation
+                duplicate_email_data = {"email": "admin@qmeal.com"}  # Assuming this exists
+                response2 = self.make_request("PATCH", "/auth/profile", duplicate_email_data, use_auth=True)
+                if response2 and response2.status_code == 400:
+                    self.log_result("Profile Email Validation", True, "Email uniqueness validation working")
+                    return True
+                else:
+                    # If no conflict, try with a unique email
+                    unique_email_data = {"email": f"updated_{self.test_user_email}"}
+                    response3 = self.make_request("PATCH", "/auth/profile", unique_email_data, use_auth=True)
+                    if response3 and response3.status_code == 200:
+                        self.log_result("Profile Email Update", True, "Email update working")
+                        return True
+                    else:
+                        self.log_result("Profile Email Update", False, f"Email update failed: {response3.status_code if response3 else 'No response'}")
+                        return False
+        
+        self.log_result("Profile Update", False, f"Failed to update profile: {response.status_code if response else 'No response'}")
+        return False
+
     def run_all_tests(self):
         """Run all API tests"""
         print(f"🚀 Starting Qmeal API Tests - Updated JWT Authentication")
@@ -448,6 +482,9 @@ class QmealAPITester:
             # Orders
             ("Create Order", self.test_orders_create),
             ("Orders List", self.test_orders_list),
+            
+            # NEW Profile Update endpoint
+            ("Profile Update", self.test_profile_update),
             
             # Logout
             ("Auth Logout", self.test_auth_logout),

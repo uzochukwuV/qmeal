@@ -112,8 +112,10 @@ export default function RootLayout() {
     }
   }, [user, segments, isLoading, isVerifying]);
 
-  // Listen for notifications
+  // Listen for notifications (native only)
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);
     });
@@ -129,8 +131,12 @@ export default function RootLayout() {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      if (notificationListener) {
+        Notifications.removeNotificationSubscription(notificationListener);
+      }
+      if (responseListener) {
+        Notifications.removeNotificationSubscription(responseListener);
+      }
     };
   }, []);
 
@@ -173,6 +179,34 @@ export default function RootLayout() {
         />
         <Stack.Screen 
           name="favorites" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+          }} 
+        />
+        <Stack.Screen 
+          name="order/[id]" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+          }} 
+        />
+        <Stack.Screen 
+          name="notifications" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+          }} 
+        />
+        <Stack.Screen 
+          name="review/[restaurant_id]" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal',
+          }} 
+        />
+        <Stack.Screen 
+          name="edit-profile" 
           options={{ 
             headerShown: false,
             presentation: 'card',

@@ -49,10 +49,10 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { icon: 'heart-outline', label: 'Favorites', onPress: () => router.push('/favorites') },
-    { icon: 'person-outline', label: 'Edit Profile', onPress: () => {} },
+    { icon: 'person-outline', label: 'Edit Profile', onPress: () => router.push('/edit-profile') },
     { icon: 'location-outline', label: 'Saved Addresses', onPress: () => {} },
     { icon: 'card-outline', label: 'Payment Methods', onPress: () => {} },
-    { icon: 'notifications-outline', label: 'Notifications', onPress: () => {} },
+    { icon: 'notifications-outline', label: 'Notifications', onPress: () => router.push('/notifications') },
     { icon: 'help-circle-outline', label: 'Help & Support', onPress: () => {} },
     { icon: 'document-text-outline', label: 'Terms & Privacy', onPress: () => {} },
   ];
@@ -83,7 +83,7 @@ export default function ProfileScreen() {
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <Text style={styles.userEmail}>{user?.email || user?.phone || ''}</Text>
           </View>
-          <TouchableOpacity style={styles.editButton}>
+          <TouchableOpacity style={styles.editButton} onPress={() => router.push('/edit-profile')}>
             <Ionicons name="pencil" size={20} color={COLORS.accent} />
           </TouchableOpacity>
         </View>

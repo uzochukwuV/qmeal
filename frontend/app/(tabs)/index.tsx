@@ -94,7 +94,7 @@ export default function HomeScreen() {
           <Text style={styles.addressText}>Current Location</Text>
           <Ionicons name="chevron-down" size={16} color={COLORS.textSecondary} />
         </View>
-        <TouchableOpacity style={styles.notificationBtn}>
+        <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/notifications')}>
           <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>

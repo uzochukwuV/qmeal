@@ -86,6 +86,11 @@ class AuthResponse(BaseModel):
 class UpdatePushTokenRequest(BaseModel):
     push_token: str
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
 class Restaurant(BaseModel):
     restaurant_id: str = Field(default_factory=lambda: f"rest_{uuid.uuid4().hex[:12]}")
     name: str
@@ -417,6 +422,35 @@ async def update_push_token(
         {"$set": {"push_token": request_data.push_token}}
     )
     return {"message": "Push token updated"}
+
+@api_router.patch("/auth/profile")
+async def update_profile(
+    request_data: UpdateProfileRequest,
+    current_user: User = Depends(require_auth)
+):
+    """Update user profile"""
+    update_fields = {}
+    if request_data.name is not None:
+        update_fields["name"] = request_data.name
+    if request_data.email is not None:
+        # Check if email is already taken by another user
+        existing = await db.users.find_one({"email": request_data.email, "user_id": {"$ne": current_user.user_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_fields["email"] = request_data.email
+    if request_data.phone is not None:
+        update_fields["phone"] = request_data.phone
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    await db.users.update_one(
+        {"user_id": current_user.user_id},
+        {"$set": update_fields}
+    )
+    
+    updated_user = await db.users.find_one({"user_id": current_user.user_id}, {"_id": 0, "password": 0})
+    return updated_user
 
 # ==================== RESTAURANT ENDPOINTS ====================
 

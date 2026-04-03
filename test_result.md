@@ -309,6 +309,21 @@ backend:
         agent: "testing"
         comment: "Notification endpoints working - GET /api/notifications (list), POST /api/notifications/{id}/read (mark read), POST /api/notifications/read-all (mark all read). Push notifications created on order events but require push tokens for delivery."
 
+  - task: "Profile update endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PATCH /api/auth/profile endpoint added. Updates user name, email, phone with email uniqueness check."
+      - working: true
+        agent: "testing"
+        comment: "PATCH /api/auth/profile working correctly - successfully updates user name, email, phone with proper email uniqueness validation. All existing endpoints verified as still working."
+
 frontend:
   - task: "Login screen with Google OAuth"
     implemented: true
@@ -414,10 +429,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "JWT authentication system"
-    - "New favorites endpoints"
-    - "Payment integration"
-    - "Notifications system"
+    - "Frontend UI testing"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -429,5 +441,7 @@ agent_communication:
     message: "Backend API testing complete - All 14 endpoints tested successfully including public APIs (health, restaurants, menu, reviews, cuisines) and authenticated APIs (auth/me, orders CRUD, reviews creation, logout). Created comprehensive test suite in backend_test.py. Authentication flow working correctly with session tokens. All high-priority backend tasks now verified as working."
   - agent: "main"
     message: "Updated Qmeal app with new JWT-based authentication system replacing Emergent Auth. Added new features: favorites management, payment integration with Stripe (mock keys), and notifications system. All endpoints implemented and ready for testing."
+  - agent: "main"
+    message: "Fixed configuration error (react-native-maps web crash) using platform-specific files. Added PATCH /auth/profile endpoint. Connected navigation for Order Detail, Notifications, Edit Profile, and Review screens. All new routes registered in _layout.tsx. Ready for comprehensive backend testing."
   - agent: "testing"
-    message: "Comprehensive testing of updated Qmeal backend complete - All 18 endpoints tested successfully including NEW JWT-based auth (register/login/me/logout), favorites management (add/list/check/remove), payment integration (config/create-intent with MOCK Stripe), and notifications system (list/mark-read/mark-all-read). All authentication flows working correctly with JWT tokens. Payment system ready for production Stripe keys. Notification system functional but requires push tokens for delivery. Updated backend_test.py with comprehensive test suite covering all new endpoints."
+    message: "Comprehensive backend testing completed successfully. All 18 endpoints tested and working including the NEW PATCH /api/auth/profile endpoint. Profile update functionality verified with name, email, phone updates and email uniqueness validation. All existing endpoints (auth, restaurants, menu, favorites, payments, notifications, orders) confirmed still working correctly. Backend API is fully functional."

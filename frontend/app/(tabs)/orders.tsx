@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../src/api/client';
 import { COLORS, SIZES, FONTS, SHADOWS } from '../../src/constants/theme';
@@ -47,6 +48,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function OrdersScreen() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +79,11 @@ export default function OrdersScreen() {
   }, []);
 
   const renderOrderCard = ({ item }: { item: Order }) => (
-    <View style={styles.orderCard}>
+    <TouchableOpacity 
+      style={styles.orderCard}
+      onPress={() => router.push(`/order/${item.order_id}`)}
+      activeOpacity={0.7}
+    >
       <View style={styles.orderHeader}>
         <View>
           <Text style={styles.restaurantName}>{item.restaurant_name}</Text>
@@ -106,11 +112,12 @@ export default function OrdersScreen() {
 
       <View style={styles.orderFooter}>
         <Text style={styles.totalText}>Total: ${item.total.toFixed(2)}</Text>
-        <TouchableOpacity style={styles.reorderBtn}>
-          <Text style={styles.reorderText}>Reorder</Text>
-        </TouchableOpacity>
+        <View style={styles.viewDetailBtn}>
+          <Text style={styles.viewDetailText}>View Details</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (isLoading) {
@@ -266,6 +273,20 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 14,
     ...FONTS.semiBold,
+  },
+  viewDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accentLight,
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusMd,
+  },
+  viewDetailText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    ...FONTS.semiBold,
+    marginRight: 4,
   },
   emptyContainer: {
     flex: 1,
