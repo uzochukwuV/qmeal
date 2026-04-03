@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # Base URL from frontend environment
-BASE_URL = "https://meal-express-162.preview.emergentagent.com/api"
+BASE_URL = "https://order-platform-32.preview.emergentagent.com/api"
 
 class QmealAPITester:
     def __init__(self):
