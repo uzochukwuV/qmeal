@@ -34,6 +34,12 @@ interface Order {
   delivery_address: string;
   payment_status: string;
   created_at: string;
+  rider_id?: string;
+  rider?: {
+    name: string;
+    phone: string;
+    vehicle_type: string;
+  };
 }
 
 const statusSteps = ['confirmed', 'preparing', 'on_the_way', 'delivered'];
@@ -249,6 +255,27 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
+        {/* Rider Info */}
+        {order.rider && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Delivery Rider</Text>
+            <View style={styles.riderCard}>
+              <View style={styles.riderAvatar}>
+                <Ionicons name="person-outline" size={24} color={COLORS.white} />
+              </View>
+              <View style={styles.riderInfo}>
+                <Text style={styles.riderName}>{order.rider.name}</Text>
+                <Text style={styles.riderVehicle}>
+                  {order.rider.vehicle_type?.charAt(0).toUpperCase() + order.rider.vehicle_type?.slice(1) || 'Vehicle'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.callButton} onPress={() => {/* Call rider */}}>
+                <Ionicons name="call-outline" size={20} color={COLORS.accent} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Order Items */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Order Items</Text>
@@ -420,6 +447,47 @@ const styles = StyleSheet.create({
   stepLabelActive: {
     color: COLORS.white,
     ...FONTS.medium,
+  },
+  riderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  riderAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+  },
+  riderInfo: {
+    flex: 1,
+  },
+  riderName: {
+    fontSize: 16,
+    ...FONTS.semiBold,
+    color: COLORS.textPrimary,
+  },
+  riderVehicle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  callButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.accent,
   },
   section: {
     backgroundColor: COLORS.card,

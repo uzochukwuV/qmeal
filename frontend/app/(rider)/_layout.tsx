@@ -1,18 +1,18 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { OWNER_COLORS } from '../../src/constants/ownerTheme';
+import { RIDER_COLORS } from '../../src/constants/riderTheme';
 
-export default function OwnerLayout() {
+export default function RiderLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: OWNER_COLORS.accent,
-        tabBarInactiveTintColor: OWNER_COLORS.textTertiary,
+        tabBarActiveTintColor: RIDER_COLORS.accent,
+        tabBarInactiveTintColor: RIDER_COLORS.textTertiary,
         tabBarStyle: {
-          backgroundColor: OWNER_COLORS.primary,
-          borderTopColor: OWNER_COLORS.border,
+          backgroundColor: RIDER_COLORS.primary,
+          borderTopColor: RIDER_COLORS.border,
           borderTopWidth: 1,
           paddingTop: 4,
           height: 80,
@@ -29,34 +29,25 @@ export default function OwnerLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid-outline" size={size} color={color} />
+            <Ionicons name="speedometer-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="available"
         options={{
-          title: 'Orders',
+          title: 'Available',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
+            <Ionicons name="list-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="menu"
+        name="history"
         options={{
-          title: 'Menu',
+          title: 'History',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="payouts"
-        options={{
-          title: 'Payouts',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />

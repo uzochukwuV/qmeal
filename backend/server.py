@@ -55,7 +55,7 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     push_token: Optional[str] = None
-    role: str = "customer"  # "customer" or "owner"
+    role: str = "customer"  # "customer", "owner", "rider", "admin"
     restaurant_id: Optional[str] = None  # Links owner to their restaurant
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -95,6 +95,11 @@ class UpdateProfileRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
 
+class OperatingHours(BaseModel):
+    open: str # e.g. "09:00"
+    close: str # e.g. "22:00"
+    is_closed: bool = False
+
 class Restaurant(BaseModel):
     restaurant_id: str = Field(default_factory=lambda: f"rest_{uuid.uuid4().hex[:12]}")
     name: str
@@ -111,6 +116,7 @@ class Restaurant(BaseModel):
     delivery_time_max: int = 40
     delivery_fee: float = 2.99
     is_open: bool = True
+    operating_hours: Optional[dict] = None # e.g. {"monday": {"open": "09:00", "close": "22:00", "is_closed": False}}
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class MenuItem(BaseModel):
@@ -140,6 +146,14 @@ class CartItem(BaseModel):
     quantity: int
     restaurant_id: str
 
+class Promotion(BaseModel):
+    promo_id: str = Field(default_factory=lambda: f"promo_{uuid.uuid4().hex[:12]}")
+    restaurant_id: str
+    code: str
+    discount_percentage: float
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class Order(BaseModel):
     order_id: str = Field(default_factory=lambda: f"ord_{uuid.uuid4().hex[:12]}")
     user_id: str
@@ -153,6 +167,7 @@ class Order(BaseModel):
     delivery_address: str
     payment_intent_id: Optional[str] = None
     payment_status: str = "pending"
+    rider_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Favorite(BaseModel):
@@ -169,6 +184,37 @@ class Notification(BaseModel):
     data: Optional[dict] = None
     read: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class Delivery(BaseModel):
+    delivery_id: str = Field(default_factory=lambda: f"del_{uuid.uuid4().hex[:12]}")
+    order_id: str
+    rider_id: Optional[str] = None
+    restaurant_id: str
+    status: str = "pending" # pending, accepted, picked_up, delivered, cancelled
+    pickup_location: dict # lat, lng, address
+    dropoff_location: dict # lat, lng, address
+    delivery_fee: float
+    tip: float = 0.0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    accepted_at: Optional[datetime] = None
+    picked_up_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+
+class Payout(BaseModel):
+    payout_id: str = Field(default_factory=lambda: f"pay_{uuid.uuid4().hex[:12]}")
+    user_id: str # Owner or Rider
+    amount: float
+    status: str = "pending" # pending, processing, completed, failed
+    method: str = "bank_transfer" # bank_transfer, stripe
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    processed_at: Optional[datetime] = None
+
+class AdminSettings(BaseModel):
+    id: str = "global"
+    platform_commission_rate: float = 0.15 # 15%
+    base_delivery_fee: float = 2.99
+    is_platform_active: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Request Models
 class CreateOrderRequest(BaseModel):
@@ -203,6 +249,19 @@ class RegisterOwnerRequest(BaseModel):
     description: str
     address: str
 
+class RegisterRiderRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    phone: str
+    vehicle_type: str = "bicycle"
+
+class RegisterAdminRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    secret_key: str
+
 class AddMenuItemRequest(BaseModel):
     name: str
     description: str
@@ -231,6 +290,7 @@ class UpdateRestaurantRequest(BaseModel):
     delivery_fee: Optional[float] = None
     is_open: Optional[bool] = None
     image_url: Optional[str] = None
+    operating_hours: Optional[dict] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -296,6 +356,20 @@ async def require_auth(request: Request) -> User:
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+async def require_rider(request: Request) -> User:
+    """Dependency that requires rider role"""
+    user = await require_auth(request)
+    if user.role != "rider":
+        raise HTTPException(status_code=403, detail="Rider access required")
+    return user
+
+async def require_admin(request: Request) -> User:
+    """Dependency that requires admin role"""
+    user = await require_auth(request)
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
 # ==================== PUSH NOTIFICATION HELPER ====================
@@ -685,7 +759,7 @@ async def create_order(
     
     return order
 
-@api_router.get("/orders/{order_id}", response_model=Order)
+@api_router.get("/orders/{order_id}")
 async def get_order(order_id: str, current_user: User = Depends(require_auth)):
     """Get single order by ID"""
     order = await db.orders.find_one(
@@ -694,7 +768,13 @@ async def get_order(order_id: str, current_user: User = Depends(require_auth)):
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return Order(**order)
+        
+    if order.get("rider_id"):
+        rider = await db.users.find_one({"user_id": order["rider_id"]}, {"_id": 0, "name": 1, "phone": 1, "vehicle_type": 1})
+        if rider:
+            order["rider"] = rider
+            
+    return order
 
 @api_router.patch("/orders/{order_id}/status")
 async def update_order_status(
@@ -915,6 +995,68 @@ async def register_owner(request_data: RegisterOwnerRequest, response: Response)
         token=token
     )
 
+@api_router.post("/auth/register-rider", response_model=AuthResponse)
+async def register_rider(request_data: RegisterRiderRequest, response: Response):
+    """Register a new rider"""
+    existing = await db.users.find_one({"email": request_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    hashed_password = hash_password(request_data.password)
+    user = {
+        "user_id": user_id,
+        "email": request_data.email,
+        "phone": request_data.phone,
+        "name": request_data.name,
+        "password_hash": hashed_password,
+        "role": "rider",
+        "vehicle_type": request_data.vehicle_type,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.users.insert_one(user)
+    
+    token = create_jwt_token(user_id)
+    return AuthResponse(
+        user_id=user_id,
+        email=request_data.email,
+        phone=request_data.phone,
+        name=request_data.name,
+        role="rider",
+        token=token
+    )
+
+@api_router.post("/auth/register-admin", response_model=AuthResponse)
+async def register_admin(request_data: RegisterAdminRequest, response: Response):
+    """Register a new admin (requires secret key)"""
+    if request_data.secret_key != "qmeal_admin_secret_2024":
+        raise HTTPException(status_code=403, detail="Invalid admin secret key")
+        
+    existing = await db.users.find_one({"email": request_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    hashed_password = hash_password(request_data.password)
+    user = {
+        "user_id": user_id,
+        "email": request_data.email,
+        "name": request_data.name,
+        "password_hash": hashed_password,
+        "role": "admin",
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.users.insert_one(user)
+    
+    token = create_jwt_token(user_id)
+    return AuthResponse(
+        user_id=user_id,
+        email=request_data.email,
+        name=request_data.name,
+        role="admin",
+        token=token
+    )
+
 # ==================== OWNER DASHBOARD ====================
 
 @api_router.get("/owner/dashboard")
@@ -1115,6 +1257,95 @@ async def owner_delete_menu_item(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Menu item not found")
     return {"message": "Menu item deleted"}
+
+# ==================== OWNER PROMOTIONS ====================
+
+@api_router.get("/owner/promotions")
+async def owner_get_promotions(current_user: User = Depends(require_owner)):
+    """Get list of promotions"""
+    cursor = db.promotions.find({"restaurant_id": current_user.restaurant_id}, {"_id": 0}).sort("created_at", -1)
+    promotions = await cursor.to_list(length=50)
+    return promotions
+
+class CreatePromotionRequest(BaseModel):
+    code: str
+    discount_percentage: float
+
+@api_router.post("/owner/promotions")
+async def owner_create_promotion(request_data: CreatePromotionRequest, current_user: User = Depends(require_owner)):
+    """Create a new promotion"""
+    if request_data.discount_percentage <= 0 or request_data.discount_percentage > 100:
+        raise HTTPException(status_code=400, detail="Invalid discount percentage")
+        
+    promotion = {
+        "promo_id": f"promo_{uuid.uuid4().hex[:12]}",
+        "restaurant_id": current_user.restaurant_id,
+        "code": request_data.code.upper(),
+        "discount_percentage": request_data.discount_percentage,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.promotions.insert_one(promotion)
+    return {"message": "Promotion created successfully", "promotion": promotion}
+
+@api_router.delete("/owner/promotions/{promo_id}")
+async def owner_delete_promotion(promo_id: str, current_user: User = Depends(require_owner)):
+    """Delete a promotion"""
+    result = await db.promotions.delete_one({"promo_id": promo_id, "restaurant_id": current_user.restaurant_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    return {"message": "Promotion deleted successfully"}
+
+# ==================== OWNER PAYOUTS ====================
+
+@api_router.get("/owner/payouts")
+async def owner_get_payouts(current_user: User = Depends(require_owner)):
+    """Get payout history and available balance"""
+    # Calculate available balance (total revenue - already requested payouts)
+    pipeline = [
+        {"$match": {"restaurant_id": current_user.restaurant_id, "status": "delivered"}},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    revenue_result = await db.orders.aggregate(pipeline).to_list(1)
+    total_revenue = revenue_result[0]["total"] if revenue_result else 0
+    
+    payout_pipeline = [
+        {"$match": {"user_id": current_user.user_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    payout_result = await db.payouts.aggregate(payout_pipeline).to_list(1)
+    total_payouts = payout_result[0]["total"] if payout_result else 0
+    
+    available_balance = max(0, total_revenue - total_payouts)
+    
+    cursor = db.payouts.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1)
+    payout_history = await cursor.to_list(length=20)
+    
+    return {
+        "available_balance": available_balance,
+        "history": payout_history
+    }
+
+class PayoutRequest(BaseModel):
+    amount: float
+    method: str = "bank_transfer"
+
+@api_router.post("/owner/payouts/request")
+async def owner_request_payout(request_data: PayoutRequest, current_user: User = Depends(require_owner)):
+    """Request a payout"""
+    if request_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+        
+    payout = {
+        "payout_id": f"pay_{uuid.uuid4().hex[:12]}",
+        "user_id": current_user.user_id,
+        "amount": request_data.amount,
+        "status": "pending",
+        "method": request_data.method,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.payouts.insert_one(payout)
+    return {"message": "Payout requested successfully"}
 
 # ==================== OWNER RESTAURANT PROFILE ====================
 
@@ -1370,6 +1601,257 @@ async def seed_database():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+# ==================== ADMIN ENDPOINTS ====================
+
+@api_router.get("/admin/dashboard")
+async def admin_dashboard(current_user: User = Depends(require_admin)):
+    """Get global platform stats for admin"""
+    total_users = await db.users.count_documents({})
+    total_restaurants = await db.restaurants.count_documents({})
+    total_orders = await db.orders.count_documents({})
+    
+    # Total platform revenue
+    pipeline_all = [
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    all_revenue_result = await db.orders.aggregate(pipeline_all).to_list(1)
+    total_revenue = all_revenue_result[0]["total"] if all_revenue_result else 0
+
+    return {
+        "total_users": total_users,
+        "total_restaurants": total_restaurants,
+        "total_orders": total_orders,
+        "total_revenue": total_revenue
+    }
+
+@api_router.get("/admin/restaurants")
+async def admin_list_restaurants(
+    skip: int = 0,
+    limit: int = 20,
+    current_user: User = Depends(require_admin)
+):
+    """List all restaurants for admin"""
+    cursor = db.restaurants.find({}, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1)
+    restaurants = await cursor.to_list(length=limit)
+    return restaurants
+
+@api_router.get("/admin/users")
+async def admin_list_users(
+    role: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+    current_user: User = Depends(require_admin)
+):
+    """List all users for admin"""
+    query = {}
+    if role:
+        query["role"] = role
+        
+    cursor = db.users.find(query, {"_id": 0, "password_hash": 0}).skip(skip).limit(limit).sort("created_at", -1)
+    users = await cursor.to_list(length=limit)
+    return users
+
+class AdminUpdateUserRequest(BaseModel):
+    role: Optional[str] = None
+    name: Optional[str] = None
+
+@api_router.patch("/admin/users/{user_id}")
+async def admin_update_user(
+    user_id: str,
+    request_data: AdminUpdateUserRequest,
+    current_user: User = Depends(require_admin)
+):
+    """Update user by admin"""
+    update_fields = request_data.dict(exclude_unset=True)
+    if not update_fields:
+        return {"message": "No fields to update"}
+        
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User updated successfully"}
+
+class AdminUpdateRestaurantRequest(BaseModel):
+    is_open: Optional[bool] = None
+    delivery_fee: Optional[float] = None
+
+@api_router.patch("/admin/restaurants/{restaurant_id}")
+async def admin_update_restaurant(
+    restaurant_id: str,
+    request_data: AdminUpdateRestaurantRequest,
+    current_user: User = Depends(require_admin)
+):
+    """Update restaurant by admin"""
+    update_fields = request_data.dict(exclude_unset=True)
+    if not update_fields:
+        return {"message": "No fields to update"}
+        
+    result = await db.restaurants.update_one(
+        {"restaurant_id": restaurant_id},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+    return {"message": "Restaurant updated successfully"}
+
+# ==================== RIDER ENDPOINTS ====================
+
+@api_router.get("/rider/available-orders")
+async def rider_available_orders(current_user: User = Depends(require_rider)):
+    """Get list of orders waiting for a rider"""
+    # Orders that are confirmed or preparing, and don't have a rider assigned
+    cursor = db.orders.find({
+        "status": {"$in": ["confirmed", "preparing", "ready"]},
+        "rider_id": None
+    }, {"_id": 0}).sort("created_at", -1)
+    orders = await cursor.to_list(length=50)
+    return orders
+
+@api_router.post("/rider/orders/{order_id}/accept")
+async def rider_accept_order(order_id: str, current_user: User = Depends(require_rider)):
+    """Accept an order for delivery"""
+    order = await db.orders.find_one({"order_id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    if order.get("rider_id"):
+        raise HTTPException(status_code=400, detail="Order already assigned to a rider")
+        
+    # Create delivery record
+    delivery_id = f"del_{uuid.uuid4().hex[:12]}"
+    delivery = {
+        "delivery_id": delivery_id,
+        "order_id": order_id,
+        "rider_id": current_user.user_id,
+        "restaurant_id": order["restaurant_id"],
+        "status": "accepted",
+        "pickup_location": {"address": order.get("restaurant_name", "Restaurant")}, # Mock
+        "dropoff_location": {"address": order.get("delivery_address", "Customer")}, # Mock
+        "delivery_fee": order.get("delivery_fee", 2.99),
+        "tip": 0.0,
+        "created_at": datetime.now(timezone.utc),
+        "accepted_at": datetime.now(timezone.utc)
+    }
+    await db.deliveries.insert_one(delivery)
+    
+    # Update order with rider_id
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {"$set": {"rider_id": current_user.user_id}}
+    )
+    
+    # Notify customer
+    await send_push_notification(
+        order["user_id"],
+        "Rider Assigned",
+        f"{current_user.name} is heading to the restaurant.",
+        {"order_id": order_id, "type": "rider_assigned"}
+    )
+    
+    return {"message": "Order accepted", "delivery_id": delivery_id}
+
+@api_router.patch("/rider/orders/{order_id}/status")
+async def rider_update_status(
+    order_id: str, 
+    status_data: UpdateOrderStatusRequest,
+    current_user: User = Depends(require_rider)
+):
+    """Update delivery status (picked_up, on_the_way, delivered)"""
+    valid_statuses = ["picked_up", "on_the_way", "delivered"]
+    if status_data.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid rider status")
+        
+    order = await db.orders.find_one({"order_id": order_id, "rider_id": current_user.user_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
+        
+    # Update order status
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {"$set": {"status": status_data.status}}
+    )
+    
+    # Update delivery record
+    delivery_update = {"status": status_data.status}
+    if status_data.status == "picked_up":
+        delivery_update["picked_up_at"] = datetime.now(timezone.utc)
+    elif status_data.status == "delivered":
+        delivery_update["delivered_at"] = datetime.now(timezone.utc)
+        
+    await db.deliveries.update_one(
+        {"order_id": order_id},
+        {"$set": delivery_update}
+    )
+    
+    # Notify customer
+    status_messages = {
+        "picked_up": "Your order has been picked up!",
+        "on_the_way": "Your order is on the way!",
+        "delivered": "Your order has been delivered!"
+    }
+    
+    await send_push_notification(
+        order["user_id"],
+        "Order Update",
+        status_messages[status_data.status],
+        {"order_id": order_id, "type": f"order_{status_data.status}"}
+    )
+    
+    return {"message": f"Status updated to {status_data.status}"}
+
+@api_router.get("/rider/dashboard")
+async def rider_dashboard(current_user: User = Depends(require_rider)):
+    """Get rider stats"""
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    today_deliveries = await db.deliveries.count_documents({
+        "rider_id": current_user.user_id,
+        "created_at": {"$gte": today_start},
+        "status": "delivered"
+    })
+    
+    pipeline = [
+        {"$match": {
+            "rider_id": current_user.user_id,
+            "status": "delivered"
+        }},
+        {"$group": {"_id": None, "total": {"$sum": "$delivery_fee"}}}
+    ]
+    revenue_result = await db.deliveries.aggregate(pipeline).to_list(1)
+    total_earnings = revenue_result[0]["total"] if revenue_result else 0
+    
+    # Get active delivery
+    active_delivery = await db.deliveries.find_one({
+        "rider_id": current_user.user_id,
+        "status": {"$in": ["accepted", "picked_up", "on_the_way"]}
+    }, {"_id": 0})
+    
+    if active_delivery:
+        order = await db.orders.find_one({"order_id": active_delivery["order_id"]}, {"_id": 0})
+        active_delivery["order"] = order
+
+    return {
+        "today_deliveries": today_deliveries,
+        "total_earnings": total_earnings,
+        "active_delivery": active_delivery
+    }
+
+@api_router.get("/rider/deliveries")
+async def rider_deliveries(skip: int = 0, limit: int = 20, current_user: User = Depends(require_rider)):
+    """Get rider delivery history"""
+    cursor = db.deliveries.find({"rider_id": current_user.user_id}, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1)
+    deliveries = await cursor.to_list(length=limit)
+    
+    # Attach order details
+    for delivery in deliveries:
+        order = await db.orders.find_one({"order_id": delivery["order_id"]}, {"_id": 0})
+        delivery["order"] = order
+        
+    return deliveries
 
 # Include the router in the main app
 app.include_router(api_router)
