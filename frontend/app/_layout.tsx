@@ -103,6 +103,8 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
     const inOwnerGroup = segments[0] === '(owner)';
+    const inAdminGroup = segments[0] === '(admin)';
+    const inRiderGroup = segments[0] === '(rider)';
 
     if (!user && !inAuthGroup) {
       // Not logged in and not in auth group, redirect to login
@@ -111,15 +113,24 @@ export default function RootLayout() {
       // Logged in and in auth group, redirect based on role
       if (user.role === 'owner') {
         router.replace('/(owner)');
+      } else if (user.role === 'admin') {
+        router.replace('/(admin)');
+      } else if (user.role === 'rider') {
+        router.replace('/(rider)');
       } else {
         router.replace('/(tabs)');
       }
-    } else if (user && user.role === 'owner' && inTabsGroup) {
-      // Owner in customer tabs, redirect to owner
-      router.replace('/(owner)');
-    } else if (user && user.role !== 'owner' && inOwnerGroup) {
-      // Customer in owner area, redirect to customer tabs
-      router.replace('/(tabs)');
+    } else if (user) {
+      // Ensure user stays in their designated group
+      if (user.role === 'owner' && !inOwnerGroup) {
+        router.replace('/(owner)');
+      } else if (user.role === 'admin' && !inAdminGroup) {
+        router.replace('/(admin)');
+      } else if (user.role === 'rider' && !inRiderGroup) {
+        router.replace('/(rider)');
+      } else if (user.role === 'customer' && !inTabsGroup && (inOwnerGroup || inAdminGroup || inRiderGroup)) {
+        router.replace('/(tabs)');
+      }
     }
   }, [user, segments, isLoading, isVerifying]);
 
@@ -168,6 +179,8 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(owner)" options={{ headerShown: false }} />
+        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+        <Stack.Screen name="(rider)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="restaurant/[id]" 
           options={{ 

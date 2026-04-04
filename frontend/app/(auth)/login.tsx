@@ -64,7 +64,11 @@ export default function LoginScreen() {
       });
       
       // Route based on role
-      if (userData.role === 'owner') {
+      if (userData.role === 'admin') {
+        router.replace('/(admin)');
+      } else if (userData.role === 'rider') {
+        router.replace('/(rider)');
+      } else if (userData.role === 'owner') {
         router.replace('/(owner)');
       } else {
         router.replace('/(tabs)');
