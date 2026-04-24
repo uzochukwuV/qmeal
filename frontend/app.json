@@ -2,6 +2,7 @@
   "expo": {
     "name": "Qmeal",
     "slug": "qmeal",
+    "owner": "uzochukwuv",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -24,7 +25,9 @@
       "package": "com.qmeal.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -60,6 +63,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "79f9850c-769b-4417-9e34-9d7cfc8c8e4d"
+      }
     }
   }
 }
