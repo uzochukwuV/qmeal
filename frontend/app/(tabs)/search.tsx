@@ -5,8 +5,10 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { RestaurantCard } from '../../src/components/RestaurantCard';
@@ -33,6 +35,10 @@ interface Restaurant {
 
 export default function SearchScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const androidStatusBarHeight =
+    Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0;
+  const topInset = Math.max(insets.top, androidStatusBarHeight);
   const [searchQuery, setSearchQuery] = useState('');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [cuisines, setCuisines] = useState<string[]>([]);
@@ -77,7 +83,14 @@ export default function SearchScreen() {
   }, [searchQuery, selectedCuisine]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={COLORS.background}
+        translucent={false}
+      />
+      <View style={[styles.topSpacer, { height: topInset }]} />
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Search</Text>
@@ -92,11 +105,13 @@ export default function SearchScreen() {
       />
 
       {/* Cuisine Filter */}
-      <CuisineFilter
-        cuisines={cuisines}
-        selected={selectedCuisine}
-        onSelect={setSelectedCuisine}
-      />
+      <View style={styles.filterRow}>
+        <CuisineFilter
+          cuisines={cuisines}
+          selected={selectedCuisine}
+          onSelect={setSelectedCuisine}
+        />
+      </View>
 
       {/* Results */}
       {isLoading ? (
@@ -138,6 +153,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  topSpacer: {
+    width: '100%',
+    backgroundColor: COLORS.background,
+  },
+  filterRow: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   header: {
     paddingHorizontal: SIZES.md,

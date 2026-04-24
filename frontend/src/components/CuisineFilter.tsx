@@ -35,6 +35,7 @@ export const CuisineFilter: React.FC<CuisineFilterProps> = ({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
       contentContainerStyle={styles.container}
     >
       <TouchableOpacity
@@ -76,13 +77,19 @@ export const CuisineFilter: React.FC<CuisineFilterProps> = ({
 };
 
 const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   container: {
     paddingHorizontal: SIZES.md,
     paddingBottom: SIZES.md,
+    alignItems: 'center',
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     paddingHorizontal: SIZES.md,
     paddingVertical: SIZES.sm,
     backgroundColor: COLORS.backgroundSecondary,
