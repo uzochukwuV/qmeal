@@ -19,7 +19,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ['MONGO_URL'] or "mongodb+srv://vicezealor_db_user:bQHNL5fFkLKSgAxO@cluster0.ucm88sl.mongodb.net/?appName=Cluster0"
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'qmeal_db')]
 

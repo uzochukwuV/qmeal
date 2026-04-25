@@ -3,7 +3,14 @@
 Food-ordering app with role-based flows (customer, owner, rider, admin).
 
 ## Stack
+az webapp config appsettings set --name qmean-backend --resource-group qmeal --settings MONGO_URL="mongodb+srv://vicezealor_db_user:bQHNL5fFkLKSgAxO@cluster0.ucm88sl.mongodb.net/?appName=Cluster0" JWT_SECRET="vicezealor_db_user_bQHNL5fFkLKSgAxO"
 
+"mongodb+srv://vicezealor_db_user:bQHNL5fFkLKSgAxO@cluster0.ucm88sl.mongodb.net/?appName=Cluster0"
+bQHNL5fFkLKSgAxO
+
+vicezealor_db_user
+
+mongodb+srv://vicezealor_db_user:bQHNL5fFkLKSgAxO@cluster0.ucm88sl.mongodb.net/?appName=Cluster0
 - **Frontend:** Expo / React Native (web target via Metro). Lives in `frontend/`.
 - **Backend:** FastAPI + Motor (async MongoDB driver). Lives in `backend/`.
 - **Database:** MongoDB 7 (installed as a Nix system package).
